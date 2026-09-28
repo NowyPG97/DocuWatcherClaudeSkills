@@ -1,0 +1,13 @@
+{
+  "name": "docuwatcher",
+  "owner": {
+    "name": "NowyPG97"
+  },
+  "plugins": [
+    {
+      "name": "docuwatcher-skills",
+      "source": "./",
+      "description": "Skille Claude Code dla projektu DocuWatcher"
+    }
+  ]
+}
