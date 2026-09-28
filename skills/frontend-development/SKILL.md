@@ -31,6 +31,13 @@ Skill odpowiada za **jak pisać kod frontendu**; cykl życia zadania i git
 obsługuje [`github-task-delivery`](../github-task-delivery/SKILL.md), który
 ładuje ten skill w kroku implementacji.
 
+**[`reference/patterns.md`](reference/patterns.md) zawiera gotowy, kompletny
+kod** dla pięciu wzorców opisanych niżej (współdzielony klient HTTP, cienki
+moduł `api/<domena>.ts`, warstwa React Query, komponent z CSS Modules,
+handler MSW + test). Adaptuj go, zamiast improwizować te wzorce od zera —
+to jedyny sposób, żeby dwie różne sesje Claude napisały ten sam typ kodu
+tak samo.
+
 ## Kiedy używać
 
 Ilekroć zadanie (zlecone przez `github-task-delivery` albo ad hoc) dotyka
@@ -336,9 +343,31 @@ Stack: **Vitest + React Testing Library + MSW.**
   dotyka `packages/shared`). Przed commitem licz się z pełnym `pnpm
   precommit` monorepo w hooku `pre-commit` (kilka minut).
 
-### 4. Self code review
+### 4. Bramka lintera — silniejsza niż to, co realnie odpala `pre-commit`
 
-Zanim uznasz implementację za skończoną, sprawdź:
+**Ważne:** hook `pre-commit` tego repo odpala `lint-staged`, który wywołuje
+`eslint --fix` **bez** `--max-warnings=0` — więc reguły na poziomie `warn`
+(m.in. `@typescript-eslint/no-explicit-any`) **nie są dziś automatycznie
+blokowane** przy commicie. Nie polegaj na tym jako na sygnale "jest ok".
+Zanim przejdziesz do self code review, odpal ręcznie surowy `eslint` ze
+skryptu `lint` (`--max-warnings=0`), **scoped tylko do plików, które
+utworzyłeś/zmieniłeś w tym zadaniu** (nie do całego `src` — reszta
+repo może mieć własny, niezwiązany z Tobą dług, którego nie jesteś tu od
+naprawiania):
+
+```bash
+pnpm --filter web-app exec eslint --max-warnings=0 <lista zmienionych plików .ts/.tsx>
+```
+
+Zero warningów na Twoich plikach, nie tylko zero błędów — to jest bramka
+wyższa niż ta, którą repo dziś wymusza samo, i to ona ma decydować, czy
+zadanie jest gotowe, nie łagodniejszy `lint-staged`.
+
+### 5. Self code review
+
+To nie jest lista życzeń — to bramka. Zanim uznasz implementację za
+skończoną, każdy punkt poniżej musi być **prawdziwy**, nie "raczej
+prawdziwy":
 
 - **Zero `any`, brak nieuzasadnionych `as`.**
 - **Rozmiar i odpowiedzialność komponentów** — żaden nowy/zmieniony plik
@@ -355,9 +384,12 @@ Zanim uznasz implementację za skończoną, sprawdź:
   tylko fallback.
 - **Dostępność** — `alt`, `aria-*`, `label`/`htmlFor`; żadna reguła
   `jsx-a11y` nie została lokalnie wyłączona.
-- **Hooki** — kompletne tablice zależności (`react-hooks/exhaustive-deps`
-  w `apps/web-app` jest efektywnie blokujące przez `--max-warnings=0` —
-  traktuj to jak błąd).
+- **Hooki** — kompletne tablice zależności. `react-hooks/exhaustive-deps`
+  w `apps/web-app` jest formalnie `warn`, a `pre-commit` (`lint-staged`)
+  **nie** uruchamia się z `--max-warnings=0`, więc sam hook go nie złapie —
+  to właśnie dlatego krok 4 (bramka lintera) każe Ci odpalić `lint`
+  ręcznie; traktuj tu ostrzeżenie jak błąd niezależnie od tego, czy
+  narzędzie by je przepuściło.
 - **Sprzątanie efektów** — subskrypcje Firestore/`workspaceStore`, timery.
 - **Brak `console.log`** (`no-console: error`).
 - **Testy używają MSW i query'ów dostępnościowych**, nie głębokiego
@@ -374,9 +406,12 @@ Problemy napraw **przed** commitem (obsługiwanym przez
   zadania): bazowa `eslint.config.js` (`no-console: error`,
   `@typescript-eslint/no-explicit-any: warn` — w tym skillu i tak
   traktowane jako zakaz, patrz Zasada 3) i `apps/web-app/.eslintrc.js`
-  (dodaje `react-hooks/exhaustive-deps: warn`, efektywnie blokujące przez
-  `--max-warnings=0`; lokalnie wyłącza `jsx-a11y/anchor-is-valid` — nie
-  polegaj na tym złagodzeniu, patrz Zasada 4).
+  (dodaje `react-hooks/exhaustive-deps: warn`; lokalnie wyłącza
+  `jsx-a11y/anchor-is-valid` — nie polegaj na tym złagodzeniem, patrz
+  Zasada 4). Oba `warn`-y stają się twardym błędem tylko wtedy, gdy sam
+  odpalisz `lint` z `--max-warnings=0` (krok 4 workflow) — `pre-commit`
+  (`lint-staged`) tego nie robi automatycznie, więc nie jest na to
+  wystarczającym sygnałem.
 - **Komendy root:** `pnpm dev`, `pnpm test`, `pnpm check-types`, `pnpm
   check-deps`, `pnpm precommit`. **Brak** root `pnpm lint` — lint jest
   per-pakiet (`pnpm --filter web-app lint`).
