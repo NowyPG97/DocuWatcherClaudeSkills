@@ -1,7 +1,7 @@
 ---
 name: backend-development
-description: Use automatically whenever a task touches the DocuWatcher backend (DeadlineGuradBackend — Spring Boot 3.5.9 / Java 21 / Maven) — new or changed endpoints, controllers, services, DTOs, entities, repositories, Flyway migrations, or any backend business logic; e.g. "dodaj endpoint", "zaimplementuj serwis", "napisz DTO", "dodaj migrację Flyway", "stwórz encję", "zmień logikę w kontrolerze", "backend task", "popraw walidację w API". Enforces the project's actual conventions: per-feature package layout, concrete-class services (interface+impl only for swappable external integrations), manual DTO mapping via static *Factory classes, the existing ErrorResponseDTO/ValidationErrorResponseDTO/GlobalExceptionHandler error contract, the manual workspace-ownership check pattern, Status ACTIVE/INACTIVE soft delete, Flyway naming, JUnit5/Mockito/AssertJ + AbstractIntegrationTest testing, checking latest dependency versions, and a mandatory self code review pass before finishing. Not for frontend-only tasks (akademiasaas-boilerplate), infra/DevOps config, or GitHub Project board management — those are separate skills/scopes.
-version: 1.0.0
+description: Use automatically whenever a task touches the DocuWatcher backend (DeadlineGuradBackend — Spring Boot 3.5.9 / Java 21 / Maven) — new or changed endpoints, controllers, services, DTOs, entities, repositories, Flyway migrations, or any backend business logic; e.g. "dodaj endpoint", "zaimplementuj serwis", "napisz DTO", "dodaj migrację Flyway", "stwórz encję", "zmień logikę w kontrolerze", "backend task", "popraw walidację w API". Enforces the project's real conventions: per-feature package layout, concrete-class services with constructor injection (interface+impl only for swappable external integrations, no default @Lazy setter injection for new circular dependencies — that's a design smell to fix, not a pattern to copy), manual DTO mapping via static *Factory classes, the existing ErrorResponseDTO/ValidationErrorResponseDTO/GlobalExceptionHandler error contract, a MANDATORY test proving the workspace-ownership check actually rejects cross-workspace access (not just that the check exists), Status ACTIVE/INACTIVE soft delete, Flyway naming, JUnit5/Mockito/AssertJ + AbstractIntegrationTest testing, checking latest dependency versions, and a mandatory self code review pass before finishing. There is zero CI/lint/pre-commit enforcement in this repo (verified) — this skill's rules are the only thing holding the line. Not for frontend-only tasks (akademiasaas-boilerplate), infra/DevOps config, or GitHub Project board management — those are separate skills/scopes.
+version: 1.1.0
 ---
 
 # Rozwój backendu DocuWatcher (Backend Development)
@@ -15,6 +15,13 @@ wyglądał i zachowywał się spójnie z resztą systemu — zamiast za każdym 
 wymyślać rozwiązanie od nowa. Konwencje poniżej pochodzą z przeglądu realnego
 kodu repo (moduły `asset`, `massbalance`, `common`, `exception`, `security`),
 nie z ogólnych zasad Springa "z podręcznika".
+
+**[`reference/patterns.md`](reference/patterns.md) zawiera kompletny,
+gotowy do adaptacji szkielet nowego modułu** (encja, DTO, `*Factory`,
+repozytorium, serwis z ownership-checkiem, kontroler, wpis w
+`GlobalExceptionHandler`, walidator cross-field, testy — w tym test
+odrzucenia dostępu do cudzego workspace'u wymagany Zasadą 12). Adaptuj go,
+zamiast pisać te elementy od zera za każdym razem.
 
 Ten skill **nie** zajmuje się cyklem życia zadania na tablicy ani gitem —
 tym orkiestruje [`github-task-delivery`](../github-task-delivery/SKILL.md),
@@ -92,6 +99,21 @@ zakres innych skilli.
     nową migrację Flyway, przed lokalną weryfikacją zrestartuj backend —
     samo napisanie pliku migracji nie wystarczy, żeby zobaczyć efekt w
     bazie.
+12. **Każda nowa/zmieniona metoda serwisu scoped workspace'em MUSI mieć
+    test, który realnie odrzuca dostęp do cudzego workspace'u — nie
+    wystarczy, że kod wywołuje `getWorkspaceEntity`.** To nie jest
+    dodatek "gdy starczy czasu" — ownership check jest jedynym
+    mechanizmem autoryzacji w tym repo (Zasada "Autoryzacja i
+    multi-tenancy" niżej) i ma zero mechanicznego zabezpieczenia poza
+    dyscypliną programisty, więc test jest jedyną rzeczą, która wykryje
+    jego pominięcie przy kolejnej zmianie. Kilka kontrolerów już to robi
+    (`AssetControllerIntegrationTest`, `DeadlineControllerIntegrationTest`,
+    `MassBalanceBatchControllerIntegrationTest` i inne) — rozszerz ten
+    wzorzec na **każdy** nowy endpoint/metodę tego typu, nie tylko tam,
+    gdzie już jest. Zweryfikuj mutacyjnie, że test coś realnie sprawdza:
+    tymczasowo usuń wywołanie `getWorkspaceEntity`, potwierdź że test wtedy
+    nie przechodzi, przywróć kod — jeśli test przechodzi bez tego
+    wywołania, test jest atrapą, nie zabezpieczeniem.
 
 ## Konwencje tego repo (nie ogólne konwencje Spring Boot)
 
@@ -102,10 +124,25 @@ zakres innych skilli.
   SmtpEmailService}`) stosuj **tylko** gdy realnie istnieją/będą istnieć
   dwie wymienne implementacje (integracja zewnętrzna z wariantami) — nie
   domyślnie "na wszelki wypadek" dla zwykłego serwisu CRUD.
-- **Cykliczne zależności między serwisami modułów** rozwiązuj tak jak
-  istniejący kod: `@Setter(onMethod_ = {@Autowired, @Lazy}) private
-  XService xService;` zamiast wstrzykiwania konstruktorowego (przykład:
-  `AssetService.deadlineService`).
+- **Wstrzykiwanie zależności — konstruktorowe, domyślnie.** `@RequiredArgsConstructor`
+  na polach `private final` jest normą w tym repo i ma zostać normą dla
+  nowego kodu — jawne zależności, niemutowalność, łatwa testowalność.
+  **`@Setter(onMethod_ = {@Autowired, @Lazy}) private XService xService;`
+  istnieje w 4 miejscach** (`AssetService`, `FileNodeService`,
+  `MassBalanceBatchService`, `WorkspaceService`) jako obejście cyklicznych
+  zależności między konkretnymi, już istniejącymi serwisami — to **dług,
+  nie domyślny wzorzec do naśladowania w nowym module**. Cykliczna
+  zależność między dwoma serwisami to zwykle sygnał złego podziału
+  odpowiedzialności, nie problem techniczny do "obejścia" adnotacją. Jeśli
+  podczas implementacji nowego modułu Twój serwis zaczyna potrzebować
+  serwisu, który potrzebuje Twojego z powrotem: **najpierw** rozważ
+  wydzielenie wspólnej logiki do trzeciego serwisu/komponentu domenowego,
+  którego oba wywołują, albo przeniesienie jednej strony zależności do
+  zdarzenia domenowego (Spring `ApplicationEventPublisher`) zamiast
+  bezpośredniego wywołania. Sięgnij po `@Lazy` setter injection tylko gdy
+  restrukturyzacja naprawdę nie ma sensu w zakresie zadania — i zapytaj
+  użytkownika, zanim to zrobisz, bo to decyzja architektoniczna, nie
+  kosmetyczna.
 - **Brak generycznego wrappera sukcesu (`ApiResponse<T>`).** Kontrolery
   zwracają DTO (albo `Page<DTO>`) bezpośrednio — nie owijaj odpowiedzi
   sukcesu w dodatkową kopertę, bo w tym repo jej po prostu nie ma i frontend
@@ -250,7 +287,13 @@ Zanim uznasz implementację za skończoną, przejrzyj własną zmianę pod kąte
   wyjątków.
 - **Ownership check** — każda nowa metoda serwisu operująca na danych
   workspace'u faktycznie woła `workspaceService.getWorkspaceEntity(userId,
-  workspaceId)` na starcie, nie tylko czasami.
+  workspaceId)` na starcie, **i ma test, który to udowadnia** (Zasada 12) —
+  nie tylko czasami, nie tylko dla części metod.
+- **Wstrzykiwanie zależności** — konstruktorowe (`@RequiredArgsConstructor`
+  na `private final`); jeśli w nowym kodzie pojawia się `@Lazy` setter
+  injection dla cyklicznej zależności, to świadoma decyzja podjęta po
+  rozważeniu restrukturyzacji (Zasada w sekcji "Konwencje tego repo"), nie
+  odruchowe skopiowanie istniejącego wzorca.
 - **Collections & Streams** — poprawna, bezpieczna iteracja.
 - **Java Idioms** — `equals`/`hashCode` tam, gdzie wymagane, spójne użycie
   Lombok builderów (`@Builder`, `@Singular` dla kolekcji) zgodnie z resztą
@@ -275,6 +318,31 @@ istniejącego wzorca (`T-<numer>: ...` albo `type(scope): opis (T-<numer>)`)
 zamiast wymyślać nowy format — spójność historii ułatwia `git log`/`git
 blame` po numerze ticketu.
 
+## Dług techniczny, nie wzorzec
+
+Poniższe **istnieje** w repo i było wcześniej opisane w tym skillu jako
+neutralna "konwencja projektu" bez zaznaczenia, że to dług. Po ponownym
+przeglądzie: nie kopiuj tego do nowego kodu bez świadomej decyzji, nawet
+jeśli sąsiedni plik tak robi:
+
+- **`@Setter(onMethod_ = {@Autowired, @Lazy})` jako domyślny sposób na
+  cykliczne zależności między serwisami** (4 wystąpienia: `AssetService`,
+  `FileNodeService`, `MassBalanceBatchService`, `WorkspaceService`) —
+  konstruktorowe wstrzykiwanie jest normą, cykliczna zależność to sygnał do
+  restrukturyzacji, nie do obejścia adnotacją (patrz "Konwencje tego
+  repo" wyżej).
+- **Ręczny ownership-check bez towarzyszącego testu** — część
+  istniejących endpointów ma test odrzucenia dostępu do cudzego
+  workspace'u, część nie. Dla nowego kodu to obowiązkowe (Zasada 12), nie
+  "gdy starczy czasu".
+- **Lokalny `@ExceptionHandler` w `AssetController`** obok globalnego
+  `GlobalExceptionHandler` — stary wzorzec sprzed wprowadzenia centralnej
+  obsługi błędów, nie przykład do naśladowania (patrz Zasada 10).
+- **Własny `FileNodeStatus` w module `drive`** zamiast wspólnego
+  `common.enumeration.Status` — istniejące, świadome odstępstwo w jednym
+  miejscu, nie precedens do powielania w nowym module bez konkretnego
+  powodu.
+
 ## Czego unikać
 
 - Nie pisz kodu backendu z nazwami w innym języku niż angielski.
@@ -286,7 +354,11 @@ blame` po numerze ticketu.
   `GlobalExceptionHandler` (wzorzec w `AssetController` to stary,
   niepowtarzalny dług, nie przykład do naśladowania).
 - Nie pomijaj ownership-checku (`workspaceService.getWorkspaceEntity`) w
-  nowej metodzie serwisu operującej na danych workspace'u.
+  nowej metodzie serwisu operującej na danych workspace'u — i nie
+  pomijaj testu, który to udowadnia (Zasada 12).
+- Nie sięgaj domyślnie po `@Lazy` setter injection przy pierwszej napotkanej
+  cyklicznej zależności — najpierw rozważ restrukturyzację, potem, jeśli
+  naprawdę potrzeba, zapytaj użytkownika.
 - Nie wprowadzaj MapStruct ani innego generatora mapowań — mapowanie idzie
   przez ręczne statyczne `*Factory`.
 - Nie kopiuj wzorca `drive`/`FileNodeStatus` (własny enum statusu zamiast
