@@ -1,7 +1,7 @@
 ---
 name: backend-development
-description: Use automatically whenever a task touches the DocuWatcher backend (DeadlineGuradBackend — Spring Boot 3.5.9 / Java 21 / Maven) — new or changed endpoints, controllers, services, DTOs, entities, repositories, Flyway migrations, or any backend business logic; e.g. "dodaj endpoint", "zaimplementuj serwis", "napisz DTO", "dodaj migrację Flyway", "stwórz encję", "zmień logikę w kontrolerze", "backend task", "popraw walidację w API". Enforces per-feature package layout, concrete-class services with constructor injection (interface+impl only for swappable integrations, no default @Lazy setter injection for new circular deps), manual DTO mapping via static *Factory, the ErrorResponseDTO/ValidationErrorResponseDTO/GlobalExceptionHandler error contract, a MANDATORY test proving the workspace-ownership check rejects cross-workspace access, Status ACTIVE/INACTIVE soft delete, Flyway naming, JUnit5/Mockito/AssertJ testing, and a mandatory self code review. Zero CI/lint/pre-commit exists in this repo — this skill's rules are the only enforcement. Not for frontend (akademiasaas-boilerplate), infra/DevOps, or GitHub Project board tasks.
-version: 2.0.0
+description: Use automatically whenever a task touches the DocuWatcher backend (DeadlineGuradBackend — Spring Boot 3.5.9 / Java 21 / Maven) — new or changed endpoints, controllers, services, DTOs, entities, repositories, Flyway migrations, or any backend business logic; e.g. "dodaj endpoint", "zaimplementuj serwis", "napisz DTO", "dodaj migrację Flyway", "stwórz encję", "zmień logikę w kontrolerze", "backend task", "popraw walidację w API". Enforces per-feature package layout, concrete-class @Transactional services with constructor injection (interface+impl only for swappable integrations, no default @Lazy setter injection for new circular deps), manual DTO mapping via static *Factory, the ErrorResponseDTO/ValidationErrorResponseDTO/GlobalExceptionHandler error contract, MANDATORY tests for both IDOR variants (foreign workspaceId, and own workspaceId + foreign resource id), Status ACTIVE/INACTIVE soft delete, Flyway naming, JUnit5/Mockito/AssertJ testing, and a mandatory self code review. Zero CI/lint/pre-commit exists in this repo — this skill's rules are the only enforcement. Not for frontend (akademiasaas-boilerplate), infra/DevOps, or GitHub Project board tasks.
+version: 3.0.0
 ---
 
 # Rozwój backendu DocuWatcher (Backend Development)
@@ -26,9 +26,12 @@ repozytorium, migracja, reguła biznesowa. Nie dla frontendu
 1. **Angielski w kodzie.** Nazwy — zawsze po angielsku; komentarze
    *dlaczego* (np. odwołania do numeru ticketu/reguły biznesowej) mogą być
    po polsku, zgodnie z istniejącym wzorcem.
-2. **Trzymaj się konwencji projektu** — sprawdź `asset` (prosty przykład)
-   albo `massbalance` (złożony, walidacja cross-field) przed wymyśleniem
-   nowego rozwiązania.
+2. **Wzorcem jest ten skill i `reference/patterns.md`, nie dowolny
+   sąsiedni kod.** `asset` (prosty) i `massbalance` (złożony, walidacja
+   cross-field) pokazują strukturę pakietów, fabryki, `@Transactional` i
+   ownership check — ale mają też dług, którego **nie kopiuj**: lokalne
+   `@ExceptionHandler` w `AssetController` (i 7 innych kontrolerach —
+   dublują handlery z `GlobalExceptionHandler`) oraz `@Lazy` setter injection.
 3. **Struktura per-feature.** Nowy moduł: własny pakiet
    `com.deadlineguard.backend.<modul>/` z `controller/ dto/ entity/
    enumeration/ exception/ factory/ repository/ service/ validation/`. Nie
@@ -37,8 +40,10 @@ repozytorium, migracja, reguła biznesowa. Nie dla frontendu
 4. **Nowe zależności — najnowsza stabilna wersja** (sprawdź Maven Central
    przed dodaniem do `pom.xml`).
 5. **Komentarze tylko *dlaczego*.**
-6. **DRY**, także poza zakresem zadania — duplikację napotkaną po drodze
-   eliminuj.
+6. **DRY w granicach zadania.** Nie duplikuj logiki, która już istnieje.
+   Porządki w cudzym kodzie — tylko w plikach, które zadanie i tak zmienia;
+   większy dług → propozycja nowego ticketu (reguła "Zakres zadania a dług w
+   kodzie" w `github-task-delivery`).
 7. **KISS/YAGNI.** Najprostsze, standardowe dla *tego repo* rozwiązanie.
 8. **Sprawdź kontrakt z frontendem** — DTO nie są owinięte w wrapper, więc
    frontend konsumuje kształt wprost.
@@ -47,25 +52,35 @@ repozytorium, migracja, reguła biznesowa. Nie dla frontendu
 10. **Nowy wyjątek → `GlobalExceptionHandler`**, nigdy lokalny
     `@ExceptionHandler` w kontrolerze.
 11. **Migracja Flyway wymaga restartu backendu** przed lokalną weryfikacją.
-12. **Każda nowa metoda serwisu scoped workspace'em wymaga testu
-    odrzucenia cross-workspace access** — ownership check to jedyny
-    mechanizm autoryzacji w repo, bez żadnego mechanicznego
-    zabezpieczenia. Zweryfikuj mutacyjnie: usuń wywołanie, potwierdź że
-    test wtedy pada, przywróć kod.
+12. **Każdy nowy endpoint na zasobie workspace'u wymaga testów obu
+    wariantów IDOR** — ownership check to jedyny mechanizm autoryzacji w
+    repo, bez żadnego mechanicznego zabezpieczenia:
+    - wariant 1: cudzy `workspaceId` → 404 (blokuje `getWorkspaceEntity`),
+    - wariant 2: **własny** `workspaceId` + id zasobu z cudzego workspace'u
+      → 404 i brak zmiany zasobu (blokuje wyłącznie filtr `workspaceId` w
+      zapytaniu repozytorium).
+    Sam wariant 1 przechodzi nawet przy `findById(id)` — sprawdzone
+    mutacyjnie. Zweryfikuj mutacyjnie: usuń ownership check / filtr
+    `workspaceId`, potwierdź że odpowiedni test pada, przywróć kod.
 
 ## Konwencje tego repo
 
 - **Serwis = konkretna klasa** (`@RequiredArgsConstructor @Service`), nie
   interfejs+impl — chyba że realnie istnieją wymienne implementacje (wzorzec:
   `EmailService`+`impl/{Postmark,Smtp}`).
+- **`@Transactional` na każdej publicznej metodzie serwisu**
+  (`readOnly = true` dla odczytów) — wzorzec `AssetService`. Metoda wołająca
+  `@Modifying` bez transakcji rzuci `TransactionRequiredException`.
 - **Wstrzykiwanie konstruktorowe, zawsze.** `@Setter(onMethod_=
-  {@Autowired,@Lazy})` dla cyklicznych zależności istnieje dziś w 4
-  miejscach (`AssetService`, `FileNodeService`, `MassBalanceBatchService`,
-  `WorkspaceService`) — to dług, nie wzorzec do naśladowania. Cykliczna
+  {@Autowired,@Lazy})` dla cyklicznych zależności istnieje dziś w 5
+  klasach (`AssetService`, `FileNodeService`, `MassBalanceBatchService`,
+  `SubscriptionEntitlementService`, `WorkspaceService`) — to dług, nie wzorzec do naśladowania. Cykliczna
   zależność = sygnał złego podziału odpowiedzialności; najpierw rozważ
   wydzielenie trzeciego serwisu albo `ApplicationEventPublisher`. `@Lazy`
   tylko jako świadoma decyzja — zapytaj użytkownika.
-- **Brak wrappera sukcesu.** Kontrolery zwracają DTO/`Page<DTO>` wprost.
+- **Brak wrappera sukcesu.** Kontrolery zwracają DTO/`Page<DTO>` wprost;
+  POST tworzący zasób → `@ResponseStatus(HttpStatus.CREATED)`, DELETE →
+  `@ResponseStatus(HttpStatus.NO_CONTENT)`.
 - **Błędy — trzy kształty:** `ErrorResponseDTO` (`{message, code?,
   retryable?}`, domyślny), `ValidationErrorResponseDTO` (`{message,
   errors:[{field,message}]}` dla Bean Validation — łącz `getFieldErrors()`
@@ -76,7 +91,7 @@ repozytorium, migracja, reguła biznesowa. Nie dla frontendu
   409/422 konflikty reguł biznesowych, integracje zewnętrzne →
   429/502/503, catch-all `RuntimeException` → 500).
 - **Autoryzacja — wzorzec, nie framework.** Endpoint: `@CurrentUser
-  FirebaseUserPrincipal` + `@RequestParam Long workspaceId` (nie
+  FirebaseUserPrincipal` (`principal.uid()` to `String`) + `@RequestParam Long workspaceId` (nie
   `@PathVariable`) jako pierwsze parametry. Każda metoda serwisu na danych
   workspace'u: `workspaceService.getWorkspaceEntity(userId, workspaceId)`
   na starcie — pomiń i masz lukę autoryzacyjną (patrz Zasada 12).
@@ -96,14 +111,18 @@ repozytorium, migracja, reguła biznesowa. Nie dla frontendu
 
 ## Workflow
 
-1. **Kontekst** — kryteria akceptacji (tablica/`tickets.md`), jak podobny
+1. **Kontekst** — kryteria ukończenia (z tablicy), jak podobny
    problem rozwiązano w `asset`/`massbalance`, kontrakt z frontendem.
 2. **Implementacja** — zgodnie z konwencjami wyżej; duplikację po drodze
    eliminuj. Migracja Flyway → restart backendu przed weryfikacją.
 3. **Testy** — JUnit5+Mockito+AssertJ. Jednostkowe serwisu
    (`@ExtendWith(MockitoExtension.class)`). Integracyjne: dziedzicz z
-   `AbstractIntegrationTest` (H2, `@Transactional`) +
-   `@AutoConfigureMockMvc`, auth przez `@WithMockFirebaseUser`.
+   `AbstractIntegrationTest` (H2, `@Transactional`, **Flyway wyłączony**,
+   `ddl-auto=create-drop`) + `@AutoConfigureMockMvc`, auth przez
+   `@WithMockFirebaseUser(userId = ...)`; `User` i `Workspace` zapisz w
+   `@BeforeEach` (wzorzec: `patterns.md` §10). Kontekst nie wstaje z
+   `Could not resolve placeholder 'FIREBASE_CREDENTIALS'` → brakuje lokalnej
+   konfiguracji środowiska, nie błąd w Twoim kodzie; zgłoś użytkownikowi.
    Testcontainers-Postgres tylko gdy zachowanie jest Postgres-specyficzne
    (Flyway, typy/indeksy) — nie domyślnie. Testuj też walidatory i
    fabryki osobno. `./mvnw test` (lub `verify` z Testcontainers) na
@@ -111,8 +130,10 @@ repozytorium, migracja, reguła biznesowa. Nie dla frontendu
 4. **Self code review** — bramka:
    - Null safety, brak połkniętych wyjątków.
    - Nowy wyjątek ma handler w `GlobalExceptionHandler`, nie lokalny.
-   - Ownership check obecny **i** ma test (Zasada 12) w każdej nowej
-     metodzie.
+   - Ownership check obecny **i** oba warianty IDOR mają testy (Zasada 12).
+   - Zapytania o pojedynczy zasób filtrują po `id` **i** `workspaceId`.
+   - `@Transactional` na każdej publicznej metodzie serwisu.
+   - Zero `@ExceptionHandler` w nowym/zmienianym kontrolerze.
    - Wstrzykiwanie konstruktorowe; `@Lazy` tylko jako świadoma decyzja.
    - Brak N+1, bezpieczna iteracja kolekcji.
    - Pełna walidacja wejścia na granicy API.
@@ -120,9 +141,9 @@ repozytorium, migracja, reguła biznesowa. Nie dla frontendu
 
 ## Commity
 
-Wzorzec `T-<numer>: opis` albo `type(scope): opis (T-<numer>)` — brak
-commitlint w tym repo, ale trzymaj się istniejącego wzorca dla spójności
-`git log`/`git blame`.
+`type(scope): opis (T-<numer>)` (np. `feat(mass-balance): ... (T-220)`) —
+ten sam format co wymuszany commitlintem we froncie. Backend nie ma
+commitlint, ale historia zawiera już oba formaty; nowe commity ujednolicamy.
 
 ## Czego unikać
 
@@ -130,7 +151,9 @@ commitlint w tym repo, ale trzymaj się istniejącego wzorca dla spójności
 - Interfejs+impl dla zwykłego serwisu CRUD bez realnej potrzeby.
 - Wrapper odpowiedzi sukcesu (`ApiResponse<T>`) — ten projekt go nie ma.
 - Lokalny `@ExceptionHandler` w kontrolerze zamiast `GlobalExceptionHandler`.
-- Pominięcie ownership-checku lub testu, który go udowadnia.
+- Pominięcie ownership-checku lub któregokolwiek z dwóch testów IDOR.
+- Serwis bez `@Transactional`; repozytorium szukające zasobu po samym `id`.
+- Kopiowanie lokalnego `@ExceptionHandler` z `AssetController` & co.
 - `@Lazy` setter injection jako domyślne rozwiązanie cyklicznej zależności.
 - MapStruct zamiast statycznych `*Factory`.
 - Kopiowanie `FileNodeStatus`/`drive` (własny enum statusu) bez powodu.

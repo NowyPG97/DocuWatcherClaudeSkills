@@ -2,7 +2,32 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// field-map.json jest commitowany do repo skilli — nie generuj go tylko lokalnie,
+// bo plugin cache (tam, gdzie leży __dirname po instalacji) jest nadpisywany przy aktualizacji.
 const FIELD_MAP_PATH = path.join(__dirname, '..', 'reference', 'field-map.json');
+
+// Rzeczywiste opcje pola Status na tablicy NowyPG97/1 (odzwierciedlone w field-map.json).
+const STATUS = {
+  BACKLOG: 'Backlog',
+  READY: 'Ready',
+  IN_PROGRESS: 'In progress',
+  IN_REVIEW: 'In review',
+  DONE: 'Done',
+};
+
+// Pola zwykłe (ProjectV2Field) nie niosą w field-map typu danych — typ jest ustalony tutaj.
+// Wbudowane pola GitHuba (Title, Assignees, Repository, Labels...) nie są edytowalne przez item-edit.
+const EDITABLE_PLAIN_FIELDS = {
+  Key: 'text',
+  'Depends on': 'text',
+  Estimate: 'number',
+  'Start date': 'date',
+  'Target date': 'date',
+};
+
+function sameName(a, b) {
+  return (a || '').toLowerCase() === (b || '').toLowerCase();
+}
 
 function loadFieldMap() {
   if (!fs.existsSync(FIELD_MAP_PATH)) {
@@ -33,7 +58,7 @@ function listItems() {
     'project', 'item-list', number,
     '--owner', owner,
     '--format', 'json',
-    '--limit', '500',
+    '--limit', '1000',
   ]);
   return data.items;
 }
@@ -49,6 +74,9 @@ function findItemByKey(key) {
 
 module.exports = {
   FIELD_MAP_PATH,
+  STATUS,
+  EDITABLE_PLAIN_FIELDS,
+  sameName,
   loadFieldMap,
   gh,
   ghJson,

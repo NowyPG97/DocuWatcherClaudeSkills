@@ -1,7 +1,7 @@
 ---
 name: frontend-development
-description: Use automatically whenever a task touches the DocuWatcher frontend (akademiasaas-boilerplate — React 18 / TypeScript / Vite monorepo, apps/web-app + packages/shared) — pages, components, hooks, Redux slices/thunks, REST data fetching, forms, routing, i18n, styling. E.g. "dodaj widok", "zaimplementuj komponent", "dodaj pole w formularzu", "napisz hooka", "dodaj slice reduxowy", "zmień layout strony", "frontend task". Prescribes clean-code best practices for NEW code: React Query for REST server state, Redux Toolkit only for Firebase/Firestore-synced global state, one shared HTTP client (no per-domain duplication), CSS Modules + antd tokens for styling, small single-responsibility components, no `any`, non-negotiable accessibility, MSW for API test mocking, real bilingual i18n, and the commitlint-enforced "type(scope): desc (T-XXX)" commit format. Not for backend-only (DeadlineGuradBackend), infra/DevOps, or GitHub Project board tasks.
-version: 3.0.0
+description: Use automatically whenever a task touches the DocuWatcher frontend (akademiasaas-boilerplate — React 18 / TypeScript / Vite monorepo, apps/web-app + packages/shared) — pages, components, hooks, Redux slices/thunks, REST data fetching, forms, routing, i18n, styling. E.g. "dodaj widok", "zaimplementuj komponent", "dodaj pole w formularzu", "napisz hooka", "dodaj slice reduxowy", "zmień layout strony", "frontend task". Prescribes clean-code best practices for NEW code: React Query for REST server state, Redux Toolkit only for Firebase/Firestore-synced global state, one shared HTTP client (a foundation task that does not exist yet — never built silently inside a feature task), CSS Modules + antd tokens for styling, small single-responsibility components, no `any`, non-negotiable accessibility, MSW for API test mocking, real bilingual i18n, and the commitlint-enforced "type(scope): desc (T-XXX)" commit format. Not for backend-only (DeadlineGuradBackend), infra/DevOps, or GitHub Project board tasks.
+version: 4.0.0
 ---
 
 # Rozwój frontendu DocuWatcher (Frontend Development)
@@ -12,7 +12,13 @@ Jak pisać **nowy** kod frontendu `akademiasaas-boilerplate` tak, żeby
 spełniał kryteria akceptacji zadania i był czystego, spójnego jakości —
 niezależnie od tego, jak wygląda sąsiedni, starszy kod (część istniejącego
 kodu, np. `RegisterBatch.tsx`, ~5000 linii, to dług, nie wzorzec).
-Gotowy, adaptowalny kod dla wzorców niżej: [`reference/patterns.md`](reference/patterns.md).
+Gotowy, zweryfikowany kod dla wzorców niżej: [`reference/patterns.md`](reference/patterns.md).
+
+> **Stan fundamentu (2026-09-29): wspólny `httpClient`, `QueryClientProvider`
+> i MSW jeszcze NIE istnieją** — patrz `patterns.md` §0. To osobne zadanie
+> fundamentowe. Jeśli Twoje zadanie potrzebuje któregoś z nich, a ich nie ma —
+> zatrzymaj się i zapytaj użytkownika (zrobić najpierw fundament, czy świadomie
+> napisać kod po staremu i zanotować dług). Nie buduj fundamentu "przy okazji".
 Cykl zadania/git obsługuje [`github-task-delivery`](../github-task-delivery/SKILL.md).
 
 ## Kiedy używać
@@ -37,8 +43,10 @@ formularz, routing, wywołanie API, styl, i18n. Nie dla backendu
    małe komponenty prezentacyjne per sekcja + wydzielone hooki/helpery.
    Plik zbliżający się do 200–300 linii z wieloma odpowiedzialnościami =
    dziel teraz, nie potem.
-6. **DRY obejmuje infrastrukturę.** Jeden współdzielony `httpClient`, nie
-   reimplementacja per domena.
+6. **DRY w granicach zadania.** Nie twórz kolejnej kopii istniejącej logiki
+   (np. czwartego parsera błędów HTTP). Porządki w cudzym kodzie — tylko w
+   plikach, które zadanie i tak zmienia; większy dług → propozycja nowego
+   ticketu (reguła "Zakres zadania a dług w kodzie" w `github-task-delivery`).
 7. **KISS/YAGNI.** Najprostsze rozwiązanie, bez abstrakcji "na zapas".
 8. **Nowe zależności — najnowsza stabilna wersja** (`pnpm add ... --filter
    web-app|shared`, potem `pnpm check-deps`).
@@ -56,10 +64,10 @@ formularz, routing, wywołanie API, styl, i18n. Nie dla backendu
 | Lokalny stan UI (panel, zakładka, draft) | `useState`/`useReducer` komponentu |
 | Przekrojowy stan poza `<Provider>` | istniejący `workspaceStore` (hook `useWorkspace`) |
 
-- **REST → React Query, nie ręczny `useState`+`useEffect`+`fetch`.** Jeśli
-  brak `QueryClientProvider` w `App.tsx`, dodaj raz przy pierwszym użyciu.
-  Query key factory na domenę, mutacje invalidują cache. Wzorzec:
-  `reference/patterns.md`.
+- **REST → React Query, nie ręczny `useState`+`useEffect`+`fetch`.**
+  Query key factory na domenę, mutacje invalidują cache, `workspaceId: number
+  | null` obsłużone przez `enabled` (nie `!`). Wzorzec: `patterns.md` §3.
+  Wymaga `QueryClientProvider` z zadania fundamentowego.
 - **Redux tylko dla domen Firebase/Firestore.** `createSlice` w
   `packages/shared/src/store/reducers/<domena>/`, jeden plik na thunk w
   `actions/`, `AppThunk` z `extraArgument` (nie importuj Firebase SDK w
@@ -71,11 +79,13 @@ formularz, routing, wywołanie API, styl, i18n. Nie dla backendu
 
 ## Wywołania API
 
-Jeden `apps/web-app/src/api/httpClient.ts` (dodaj, jeśli brak):
-`buildScopedUrl`, `requestJson<T>`, `parseApiError` normalizujący
-wszystkie kształty błędów backendu (`ErrorResponseDTO`,
-`ValidationErrorResponseDTO`, `ruleCode`/`details`) i daty Jacksona
-(`[rok, miesiąc, dzień]`). Każdy `api/<domena>.ts` zostaje cienki — typy +
+Docelowo jeden `apps/web-app/src/api/httpClient.ts` (`patterns.md` §1 —
+ekstrakcja istniejącego `requestJson`/`throwApiError` z `massBalance.ts`):
+`requestJson<T>`/`requestBlob`, `ApiError` normalizujący wszystkie kształty
+błędów backendu (`ErrorResponseDTO`, `ValidationErrorResponseDTO` — łączy
+`errors[].message`, `ruleCode`/`details`) oraz `parseLocalDate`/`parseInstant`
+dla dat Jacksona. Do czasu zadania fundamentowego: w nowym module korzystaj z
+tego, co już jest, i **nie** dopisuj kolejnego prywatnego parsera błędów. Każdy `api/<domena>.ts` zostaje cienki — typy +
 funkcje `fetchX`/`createX`/`updateX` na `requestJson`, żadnej reimplementacji
 parsera błędów. Ponad tym: hooki React Query (patrz "Zarządzanie stanem") —
 komponent nigdy nie woła `fetch`/`api/*.ts` bezpośrednio.
@@ -121,24 +131,32 @@ module, z komentarzem *dlaczego*.
    której kategorii stanu należy nowy stan, czy hook/util już istnieje.
 2. **Implementacja** — zgodnie z zasadami wyżej; duplikację po drodze
    eliminuj (też w warstwie HTTP).
-3. **Testy** — Vitest + RTL + **MSW** (handlery sieciowe w
-   `mocks/handlers/<domena>.ts`, nie `vi.mock('~/api/...')`). Nowy
-   `QueryClient` per test (`retry: false, gcTime: 0`). Preferuj
-   `getByRole`/`getByLabelText` nad `data-testid`. `// @vitest-environment
-   jsdom`, `globals: false` — importuj jawnie z `'vitest'`. Standardowe
-   jsdom-polyfille dla antd (`matchMedia`, `getComputedStyle`) kopiuj z
-   istniejącego testu. `pnpm test --filter web-app` (+ `--filter shared`
+3. **Testy** — Vitest + RTL. Sieć mockuj na poziomie `fetch`, nie modułów:
+   **MSW** (`mocks/handlers/<domena>.ts`, `patterns.md` §5), a dopóki MSW nie
+   jest zainstalowany — `vi.stubGlobal('fetch', ...)`; nigdy nowe
+   `vi.mock('~/api/...')`. Nowy `QueryClient` per test (`retry: false,
+   gcTime: 0`). Preferuj `findByRole`/`getByLabelText` nad `data-testid`.
+   `// @vitest-environment jsdom` per plik (domyślnie `node`), `globals:
+   false` — importuj jawnie z `'vitest'` i **wołaj `cleanup()` w
+   `afterEach`** (bez `globals` RTL nie sprząta DOM sam), dopóki nie zrobi
+   tego `setupTests.ts` z fundamentu. Polyfille antd (`matchMedia`,
+   `getComputedStyle`) i `import '~/i18nextConfig'` — wzorzec
+   `pages/Dashboard/massBalanceMenu.test.tsx`. `pnpm test --filter web-app` (+ `--filter shared`
    przy zmianie w `packages/shared`).
-4. **Lint scoped do zmienionych plików** — `pre-commit` (`lint-staged`)
-   odpala `eslint --fix` **bez** `--max-warnings=0`, więc `warn` (m.in.
-   `no-explicit-any`) nie jest dziś automatycznie łapany. Przed self review
-   odpal ręcznie: `pnpm --filter web-app exec eslint --max-warnings=0
-   <zmienione pliki>` (tylko Twoje pliki, nie cały `src`).
+4. **Lint scoped do zmienionych plików** — hook `pre-commit` uruchamia
+   `pnpm precommit` (`check-deps` → `lint-staged` → `check-types` → cały
+   `pnpm test`). `lint-staged` robi `prettier --write`, `eslint --fix` **bez**
+   `--max-warnings=0` i na końcu `git add .` (patrz pułapka w
+   `github-task-delivery` krok 7). `warn`-y (m.in. `no-explicit-any`) nie są
+   więc łapane. Przed self review odpal ręcznie:
+   `pnpm --filter web-app exec prettier --write <pliki>` i
+   `pnpm --filter web-app exec eslint --max-warnings=0 <pliki>` (tylko Twoje
+   pliki, nie cały `src`).
 5. **Self code review** — bramka, nie lista życzeń:
    - Zero `any`/nieuzasadnionych `as`.
    - Żaden nowy plik nie jest kolejnym monolitem (sekcje/hooki wydzielone).
    - Server state przez React Query, nie ręczny fetch.
-   - `api/*.ts` korzysta ze współdzielonego `httpClient`.
+   - `api/*.ts` nie dokłada własnego parsera błędów (po fundamencie: używa `httpClient`).
    - Stylowanie: CSS Modules + tokeny, zero hardkodowanych kolorów.
    - i18n: realny klucz w `en` i `pl`.
    - a11y: `alt`/`aria-*`/`label`, żadna reguła `jsx-a11y` nie wyłączona.
@@ -150,7 +168,9 @@ module, z komentarzem *dlaczego*.
 
 Prettier: `singleQuote`, `semi`, `trailingComma: 'es5'`, `printWidth: 100`.
 ESLint — dwie konfiguracje: bazowa `eslint.config.js` (`no-console: error`,
-`no-explicit-any: warn` — tu i tak traktowane jako zakaz) i
+`no-explicit-any: warn` — tu i tak traktowane jako zakaz, `newline-before-return:
+warn` — **pisz pustą linię przed `return` sam**: `eslint --fix` odpalany po
+prettierze wstawia ją ze złym wcięciem, w repo jest już ~20 takich linii) i
 `apps/web-app/.eslintrc.js` (dodaje `react-hooks/exhaustive-deps: warn`,
 lokalnie wyłącza `jsx-a11y/anchor-is-valid` — nie polegaj na tym). Oba
 `warn`-y są twardym błędem tylko przy ręcznym `--max-warnings=0` (krok 4
@@ -164,6 +184,10 @@ web-app lint|test|check-types`. Brak root `pnpm lint`.
 - Plik-monolit na wzór `RegisterBatch.tsx` — dziel od początku.
 - Ręczny `useState`+`useEffect`+`fetch` dla danych REST — React Query.
 - Reimplementacja `requestJson`/parsera błędów per domena.
+- Budowanie fundamentu (`httpClient`, `QueryClientProvider`, MSW) po cichu w
+  zadaniu funkcjonalnym — to osobne zadanie.
+- Nadpisywanie istniejących `api/assets.ts`/`api/massBalance.ts` kodem z
+  szablonu `notes`.
 - Redux dla danych serwerowych albo stanu czysto lokalnego.
 - Nowe ad hoc singletony pub-sub na wzór `workspaceStore` bez potrzeby.
 - Inline `CSSProperties`/lokalna paleta hex/wstrzykiwany `<style>` zamiast

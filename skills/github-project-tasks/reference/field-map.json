@@ -1,0 +1,220 @@
+{
+  "generatedAt": "2026-09-28T13:21:52.512Z",
+  "owner": "NowyPG97",
+  "projectNumber": 1,
+  "projectId": "PVT_kwHOBGxcvM4Bk8HF",
+  "fields": [
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzoI",
+      "name": "Title",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzoM",
+      "name": "Assignees",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTSSF_lAHOBGxcvM4Bk8HFzhjqzoQ",
+      "name": "Status",
+      "options": [
+        {
+          "id": "f75ad846",
+          "name": "Backlog"
+        },
+        {
+          "id": "61e4505c",
+          "name": "Ready"
+        },
+        {
+          "id": "47fc9ee4",
+          "name": "In progress"
+        },
+        {
+          "id": "df73e18b",
+          "name": "In review"
+        },
+        {
+          "id": "98236657",
+          "name": "Done"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzoU",
+      "name": "Labels",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzoY",
+      "name": "Linked pull requests",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzoc",
+      "name": "Milestone",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzog",
+      "name": "Repository",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzoo",
+      "name": "Reviewers",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzos",
+      "name": "Parent issue",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzow",
+      "name": "Sub-issues progress",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzo0",
+      "name": "Created",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzo4",
+      "name": "Updated",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzo8",
+      "name": "Closed",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTSSF_lAHOBGxcvM4Bk8HFzhjqzw4",
+      "name": "Priority",
+      "options": [
+        {
+          "id": "79628723",
+          "name": "P0"
+        },
+        {
+          "id": "0a877460",
+          "name": "P1"
+        },
+        {
+          "id": "da944a9c",
+          "name": "P2"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    },
+    {
+      "id": "PVTSSF_lAHOBGxcvM4Bk8HFzhjqzw8",
+      "name": "Size",
+      "options": [
+        {
+          "id": "6c6483d2",
+          "name": "XS"
+        },
+        {
+          "id": "f784b110",
+          "name": "S"
+        },
+        {
+          "id": "7515a9f1",
+          "name": "M"
+        },
+        {
+          "id": "817d0097",
+          "name": "L"
+        },
+        {
+          "id": "db339eb2",
+          "name": "XL"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzxA",
+      "name": "Estimate",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzxE",
+      "name": "Start date",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjqzxI",
+      "name": "Target date",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjra4Q",
+      "name": "Key",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTSSF_lAHOBGxcvM4Bk8HFzhjra4U",
+      "name": "Area",
+      "options": [
+        {
+          "id": "d8e35f74",
+          "name": "mass-balance-kzr"
+        },
+        {
+          "id": "bd894c65",
+          "name": "assets"
+        },
+        {
+          "id": "e01208a8",
+          "name": "deadlines"
+        },
+        {
+          "id": "d384f57b",
+          "name": "documents"
+        },
+        {
+          "id": "0a233afe",
+          "name": "auth"
+        },
+        {
+          "id": "dcd3add3",
+          "name": "notifications"
+        },
+        {
+          "id": "776405f5",
+          "name": "infra"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    },
+    {
+      "id": "PVTF_lAHOBGxcvM4Bk8HFzhjra4Y",
+      "name": "Depends on",
+      "type": "ProjectV2Field"
+    },
+    {
+      "id": "PVTSSF_lAHOBGxcvM4Bk8HFzhjrkuQ",
+      "name": "Codebase",
+      "options": [
+        {
+          "id": "2d058626",
+          "name": "backend"
+        },
+        {
+          "id": "29d34140",
+          "name": "frontend"
+        },
+        {
+          "id": "6016a368",
+          "name": "both"
+        }
+      ],
+      "type": "ProjectV2SingleSelectField"
+    }
+  ]
+}

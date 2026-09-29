@@ -34,7 +34,9 @@ const isDraft = item.content && item.content.type === 'DraftIssue';
 const body = opts.bodyFile ? fs.readFileSync(opts.bodyFile, 'utf-8') : opts.body;
 
 if (isDraft) {
-  const args = ['project', 'item-edit', '--id', item.id];
+  // Tytuł/treść draftu edytuje mutacja updateProjectV2DraftIssue — wymaga ID draftu (DI_...),
+  // nie ID pozycji w projekcie (PVTI_...).
+  const args = ['project', 'item-edit', '--id', item.content.id];
   if (opts.title) args.push('--title', opts.title);
   if (body !== undefined) args.push('--body', body);
   execFileSync('gh', args, { stdio: 'inherit' });

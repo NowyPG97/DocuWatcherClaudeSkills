@@ -67,22 +67,15 @@ DocuWatcherClaudeSkills/
 | [`frontend-development`](skills/frontend-development/SKILL.md) | Konwencje i standardy pisania kodu frontendu DocuWatcher (`akademiasaas-boilerplate`, React/TypeScript) — ładowany automatycznie, gdy zadanie dotyka frontendu |
 | [`blackbox-verification`](skills/blackbox-verification/SKILL.md) | Weryfikacja czarnoskrzynkowa systemu przez realny UI/API, bez opierania werdyktu na czytaniu kodu |
 | [`github-project-tasks`](skills/github-project-tasks/SKILL.md) | Pobieranie świeżego stanu zadań i zarządzanie ich cyklem życia (status, priorytet itd.) na tablicy GitHub Projects (`NowyPG97` / projekt nr 1) |
-| [`github-task-delivery`](skills/github-task-delivery/SKILL.md) | Standardowy przebieg realizacji zadania z tablicy: ustalenie właściwego repo (backend/frontend) → branch → implementacja (z konwencjami `backend-development`/`frontend-development` zależnie od zadania) → testy → (opcjonalnie) black-box → commit/push → zamknięcie zadania (bez mergowania do `main`) |
+| [`github-task-delivery`](skills/github-task-delivery/SKILL.md) | Standardowy przebieg realizacji zadania z tablicy: ustalenie właściwego repo (pole `Codebase`) → branch → implementacja (z konwencjami `backend-development`/`frontend-development` zależnie od zadania) → testy → (opcjonalnie) black-box → commit/push → zamknięcie zadania (bez mergowania do `main`) |
 
-## Migracja z `tickets.md`/`PROGRESS.md`
+## Tablica zadań
 
-Tickety DocuWatcher żyły dotychczas w plikach Markdown (np.
-`kzr-mass-balance-tickets.md`, `PROGRESS.md` w `C:\DocuWatcherWorkspace`).
-Docelowo trafiają na tablicę GitHub Projects
-(`https://github.com/users/NowyPG97/projects/1`). Zanim zaczniesz korzystać
-z `github-project-tasks`/`github-task-delivery`, wykonaj jednorazową
-konfigurację opisaną w
-[`skills/github-project-tasks/reference/SETUP.md`](skills/github-project-tasks/reference/SETUP.md)
-(instalacja `gh` CLI, pola projektu, wygenerowanie `field-map.json`).
-
-Dopóki migracja nie jest ukończona, oba źródła (tablica i pliki Markdown)
-mogą współistnieć — w razie rozbieżności zapytaj, które jest aktualne dla
-danego zadania, zamiast zgadywać.
+Zadania DocuWatcher żyją wyłącznie na tablicy GitHub Projects
+(`https://github.com/users/NowyPG97/projects/1`) — 230 ticketów z
+`tickets.md`/`PROGRESS.md` zmigrowano 2026-09-28, pliki leżą w `Archiwum/`.
+Konfiguracja nowej maszyny i procedura po zmianie pól tablicy:
+[`skills/github-project-tasks/reference/SETUP.md`](skills/github-project-tasks/reference/SETUP.md).
 
 ## Tworzenie nowego skilla
 
@@ -109,7 +102,11 @@ danego zadania, zamiast zgadywać.
 
 ## Wersjonowanie
 
-Aktualizacje pluginu odbywają się przez zwykły `git push` do tego repo. Możesz też przypiąć konkretną wersję:
+Aktualizacje pluginu odbywają się przez zwykły `git push` do tego repo.
+**Przy każdej zmianie skilli podbij `version` w `.claude-plugin/plugin.json`**
+— Claude Code trzyma zainstalowany plugin w cache per wersja
+(`~/.claude/plugins/cache/docuwatcher/docuwatcher-skills/<wersja>/`), więc bez
+podbicia `/plugin update` może nie pobrać zmian. Możesz też przypiąć konkretną wersję:
 
 ```bash
 /plugin install https://github.com/NowyPG97/DocuWatcherClaudeSkills.git#v1.0.0

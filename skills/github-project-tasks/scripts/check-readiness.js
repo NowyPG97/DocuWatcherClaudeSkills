@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Sprawdza, czy zadanie jest gotowe do rozpoczęcia pracy: status = Todo
+// Sprawdza, czy zadanie jest gotowe do rozpoczęcia pracy: status = Backlog lub Ready
 // i wszystkie zależności (pole "Depends on") mają status Done.
 // Użycie: node check-readiness.js <KEY>
-// Exit code: 0 = gotowe, 2 = niegotowe (zablokowane/zajęte/zrobione), 1 = błąd użycia/nie znaleziono.
-const { listItems } = require('./lib');
+// Exit code: 0 = gotowe, 2 = niegotowe (zablokowane/zajęte/w review/zrobione), 1 = błąd użycia/nie znaleziono.
+const { listItems, STATUS, sameName } = require('./lib');
 
 const key = process.argv[2];
 if (!key) {
@@ -27,12 +27,16 @@ const deps = (item['depends on'] || '')
 
 const blockedBy = deps
   .map((depKey) => ({ key: depKey, task: byKey.get(depKey) }))
-  .filter(({ task }) => !task || task.status !== 'Done')
+  .filter(({ task }) => !task || !sameName(task.status, STATUS.DONE))
   .map(({ key: depKey, task }) => ({ key: depKey, status: task ? task.status : 'unknown (brak w projekcie)' }));
 
+const startable = sameName(item.status, STATUS.BACKLOG) || sameName(item.status, STATUS.READY);
+
 let reason = null;
-if (item.status === 'In Progress') reason = 'already_in_progress';
-else if (item.status === 'Done') reason = 'already_done';
+if (sameName(item.status, STATUS.IN_PROGRESS)) reason = 'already_in_progress';
+else if (sameName(item.status, STATUS.IN_REVIEW)) reason = 'in_review';
+else if (sameName(item.status, STATUS.DONE)) reason = 'already_done';
+else if (!startable) reason = `unknown_status:${item.status}`;
 else if (blockedBy.length > 0) reason = 'blocked_by_dependencies';
 
 const result = {
@@ -41,7 +45,7 @@ const result = {
   status: item.status,
   dependencies: deps,
   blockedBy,
-  ready: item.status === 'Todo' && blockedBy.length === 0,
+  ready: reason === null,
   reason,
 };
 
