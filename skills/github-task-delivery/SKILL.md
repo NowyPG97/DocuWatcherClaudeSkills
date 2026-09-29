@@ -1,7 +1,7 @@
 ---
 name: github-task-delivery
-description: Use when asked to implement/deliver a specific development task tracked as an item on the DocuWatcher GitHub Project board (e.g. "zrealizuj T-220", "weź T-233 z tablicy", "zajmij się zadaniem T-220", "wykonaj task X od początku do końca") — the full standardized lifecycle from claiming the task, through branching off main in the right repo (backend DeadlineGuradBackend or frontend akademiasaas-boilerplate, per the board's Codebase field), implementation, writing unit/integration/frontend tests, optional black-box verification, committing and pushing a feature branch, to moving the task to In review and closing it on GitHub after user confirmation. Not for ad hoc coding requests unrelated to a tracked board item, and not for merging/deploying to main — that is explicitly out of scope of this skill.
-version: 2.0.0
+description: Use when asked to implement/deliver a specific development task tracked as an item on the DocuWatcher GitHub Project board (e.g. "zrealizuj T-220", "weź T-233 z tablicy", "zajmij się zadaniem T-220", "wykonaj task X od początku do końca") — the full standardized lifecycle from claiming the task, through branching off the repo's main branch (`main` or `master`, depending on the repo) in the right repo (backend DeadlineGuradBackend or frontend akademiasaas-boilerplate, per the board's Codebase field), implementation, writing unit/integration/frontend tests, optional black-box verification, committing and pushing a feature branch, to moving the task to In review and closing it on GitHub after user confirmation. Not for ad hoc coding requests unrelated to a tracked board item, and not for merging/deploying to the main branch (`main`/`master`) — that is explicitly out of scope of this skill.
+version: 2.1.0
 ---
 
 # Realizacja zadania z tablicy GitHub (task delivery)
@@ -27,12 +27,14 @@ Skrypty tablicy wywołuj przez
 
 ## Twarda zasada (nie do złamania)
 
-**Zakaz mergowania zmian do brancha `main`.** Ten skill kończy się na pushu
-brancha zadania do zdalnego repo. Merge do `main` (`git merge`,
-`gh pr merge`, bezpośredni push na `main`) jest **poza zakresem tego
-skilla** i nigdy nie jest wykonywany w jego ramach — niezależnie od tego, jak
-bardzo wszystko wygląda na gotowe. O merge decyduje użytkownik, osobno. Dotyczy
-obu repozytoriów.
+**Zakaz mergowania zmian do głównego brancha repozytorium — `main` albo
+`master`, zależnie od repo** (patrz tabela w kroku 0). Ten skill kończy się na
+pushu brancha zadania do zdalnego repo. Merge do głównego brancha
+(`git merge`, `gh pr merge`, bezpośredni push na `main`/`master`) jest **poza
+zakresem tego skilla** i nigdy nie jest wykonywany w jego ramach —
+niezależnie od tego, jak bardzo wszystko wygląda na gotowe. O merge decyduje
+użytkownik, osobno. Dotyczy obu repozytoriów i obu nazw — to, że repo używa
+`master` zamiast `main`, nie jest furtką.
 
 ## Kiedy używać
 
@@ -91,10 +93,20 @@ commit/push/zamknięcia, wróć i dokończ.
 
 DocuWatcher to **dwa oddzielne repozytoria**, nie monorepo:
 
-| `Codebase` | Repo | Ścieżka lokalna | Stack |
-|---|---|---|---|
-| `backend` | `DeadlineGuradBackend` | `C:\DocuWatcherWorkspace\DeadlineGuradBackend` | Spring Boot / Java |
-| `frontend` | `akademiasaas-boilerplate` | `C:\DocuWatcherWorkspace\akademiasaas-boilerplate` | React / TypeScript |
+| `Codebase` | Repo | Ścieżka lokalna | Stack | Główny branch |
+|---|---|---|---|---|
+| `backend` | `DeadlineGuradBackend` | `C:\DocuWatcherWorkspace\DeadlineGuradBackend` | Spring Boot / Java | `main` |
+| `frontend` | `akademiasaas-boilerplate` | `C:\DocuWatcherWorkspace\akademiasaas-boilerplate` | React / TypeScript | `master` |
+
+**Główny branch** (dalej: `<główny-branch>`) to `main` **albo** `master` —
+repozytoria nie są ujednolicone. Nie zakładaj nazwy z pamięci; przed krokiem 3
+potwierdź ją w repo:
+
+```bash
+git symbolic-ref --short refs/remotes/origin/HEAD   # np. origin/master → <główny-branch> = master
+```
+
+Wynik różny od tabeli → wierz repo i zaktualizuj tabelę w tym skillu.
 
 Repo wskazuje pole **`Codebase`** zadania (w JSON z `fetch-task.js`: klucz
 `codebase`). Nie myl go z wbudowanym polem `Repository`, które dla draftów
@@ -134,7 +146,7 @@ W repozytorium z kroku 0:
 
 1. `git status` — niezacommitowane zmiany niezwiązane z zadaniem → zatrzymaj
    się i zapytaj (nie gub cudzej pracy).
-2. `git checkout main`, `git pull`.
+2. `git checkout <główny-branch>`, `git pull` (`main` albo `master` — patrz krok 0).
 3. `git checkout -b <KEY>` — nazwa brancha to **dokładnie** Key (np.
    `T-220`). Branch już istnieje lokalnie lub zdalnie → zapytaj, czy wznowić,
    czy zacząć od nowa; nie usuwaj go samodzielnie.
@@ -200,7 +212,7 @@ Dopiero gdy testy są zielone (i black-box potwierdza zgodność):
    node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/set-status.js" <KEY> "In review"
    ```
 
-Żadnej operacji scalającej z `main`. Pull Request tylko na wyraźną prośbę
+Żadnej operacji scalającej z głównym branchem (`main`/`master`). Pull Request tylko na wyraźną prośbę
 użytkownika.
 
 ### 8. Potwierdzenie i zamknięcie zadania
@@ -227,7 +239,8 @@ użytkownika.
 - Pomijania `check-readiness.js` "bo wiadomo, że zadanie jest wolne".
 - Mieszania zmian backendu i frontendu w jednym branchu/commicie.
 - Commit/push z czerwonymi testami albo niewyjaśnionym wynikiem black-box.
-- Merge/rebase na `main`, push na `main` — zero wyjątków, w obu repo.
+- Merge/rebase na głównym branchu, push na `main`/`master` — zero wyjątków, w obu repo.
+- Zakładania, że główny branch to `main` — frontend używa `master`; sprawdź (krok 0).
 - `Done` bez wyraźnego potwierdzenia użytkownika.
 - Refaktoru "przy okazji" poza regułą skauta — większy dług to nowy ticket.
 - Pomijania `backend-development`/`frontend-development` dla dotkniętego repo.

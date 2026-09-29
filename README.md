@@ -67,7 +67,7 @@ DocuWatcherClaudeSkills/
 | [`frontend-development`](skills/frontend-development/SKILL.md) | Konwencje i standardy pisania kodu frontendu DocuWatcher (`akademiasaas-boilerplate`, React/TypeScript) — ładowany automatycznie, gdy zadanie dotyka frontendu |
 | [`blackbox-verification`](skills/blackbox-verification/SKILL.md) | Weryfikacja czarnoskrzynkowa systemu przez realny UI/API, bez opierania werdyktu na czytaniu kodu |
 | [`github-project-tasks`](skills/github-project-tasks/SKILL.md) | Pobieranie świeżego stanu zadań i zarządzanie ich cyklem życia (status, priorytet itd.) na tablicy GitHub Projects (`NowyPG97` / projekt nr 1) |
-| [`github-task-delivery`](skills/github-task-delivery/SKILL.md) | Standardowy przebieg realizacji zadania z tablicy: ustalenie właściwego repo (pole `Codebase`) → branch → implementacja (z konwencjami `backend-development`/`frontend-development` zależnie od zadania) → testy → (opcjonalnie) black-box → commit/push → zamknięcie zadania (bez mergowania do `main`) |
+| [`github-task-delivery`](skills/github-task-delivery/SKILL.md) | Standardowy przebieg realizacji zadania z tablicy: ustalenie właściwego repo (pole `Codebase`) → branch → implementacja (z konwencjami `backend-development`/`frontend-development` zależnie od zadania) → testy → (opcjonalnie) black-box → commit/push → zamknięcie zadania (bez mergowania do głównego brancha `main`/`master`) |
 
 ## Tablica zadań
 
