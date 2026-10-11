@@ -1,7 +1,7 @@
 ---
 name: blackbox-verification
 description: Use when the user asks to manually verify, QA, or black-box test a running application/system through its real UI or API surface — e.g. "przetestuj to jako czarną skrzynkę", "zweryfikuj manualnie w przeglądarce", "sprawdź czy to działa end-to-end", "black-box test", "QA pass", "verify the feature actually works", "click through the flow", "zrób live test". Not for unit/integration test writing, code review, or static analysis — this is about driving the live system like a real user and comparing behavior to intent, not to code.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Weryfikacja czarnoskrzynkowa (Black-Box Verification)
@@ -12,6 +12,18 @@ Zweryfikować, że system zachowuje się zgodnie z zamierzonym działaniem, obse
 wyłącznie przez jego rzeczywisty interfejs (UI, API, pliki wyjściowe) — bez opierania
 wniosków na czytaniu kodu źródłowego. Kod mówi co system *powinien* robić; czarna
 skrzynka mówi co system *faktycznie* robi.
+
+## Kto wykonuje
+
+Weryfikację wykonuje agent `qa` (Sonnet) z tym skillem jako preloadem — zrzuty
+ekranu, treść stron i logi nie trafiają do kontekstu głównej sesji. Główna sesja
+(orkiestrator) układa scenariusze (persona, pełny cykl, przypadki brzegowe),
+przekazuje kryteria dosłownie i stan środowiska, a potem **sama ocenia**
+rozbieżności i decyduje, co dalej. Dotyczy to także samodzielnych próśb „zrób live
+test”. Przy delegowaniu nie przekazuj parametru `model` — model jest ustalony w
+definicji agenta. Jako `qa` nie możesz pytać użytkownika: kwestie wymagające
+oceny człowieka (UX, sensowność komunikatu) zwracasz w raporcie w sekcji „Do
+oceny przez człowieka”, a blokady środowiska — jako wynik `ZABLOKOWANE`.
 
 ## Kiedy używać tego trybu zamiast code review
 

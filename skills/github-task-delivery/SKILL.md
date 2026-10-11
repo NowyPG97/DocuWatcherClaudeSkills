@@ -1,249 +1,339 @@
 ---
 name: github-task-delivery
-description: Use when asked to implement/deliver a specific development task tracked as an item on the DocuWatcher GitHub Project board (e.g. "zrealizuj T-220", "weź T-233 z tablicy", "zajmij się zadaniem T-220", "wykonaj task X od początku do końca") — the full standardized lifecycle from claiming the task, through branching off the repo's main branch (`main` or `master`, depending on the repo) in the right repo (backend DeadlineGuradBackend or frontend akademiasaas-boilerplate, per the board's Codebase field), implementation, writing unit/integration/frontend tests, optional black-box verification, committing and pushing a feature branch, to moving the task to In review and closing it on GitHub after user confirmation. Not for ad hoc coding requests unrelated to a tracked board item, and not for merging/deploying to the main branch (`main`/`master`) — that is explicitly out of scope of this skill.
-version: 2.1.0
+description: >-
+  Use when asked to implement/deliver a specific development task tracked as an item on the DocuWatcher GitHub Project board (e.g. "zrealizuj T-220", "zrób zadanie T-220", "weź T-233 z tablicy", "zajmij się zadaniem T-220", "kontynuuj T-220", "wykonaj task X od początku do końca") — the full standardized lifecycle from claiming the task, through branching off the repo's main branch (`main` or `master`, depending on the repo) in the right repo (backend DeadlineGuradBackend or frontend akademiasaas-boilerplate, per the board's Codebase field), implementation, writing unit/integration/frontend tests, optional black-box verification, committing and pushing a feature branch, to moving the task to In review and closing it on GitHub after user confirmation; also pausing and resuming a task across sessions. Not for ad hoc coding requests unrelated to a tracked board item, and not for merging/deploying to the main branch (`main`/`master`) — that is explicitly out of scope of this skill.
+version: 3.0.0
 ---
 
 # Realizacja zadania z tablicy GitHub (task delivery)
 
-## Cel
+## Cel i role
 
-Jeden, zawsze taki sam przebieg realizacji pojedynczego zadania z tablicy
-GitHub Projects DocuWatcher — od odświeżenia jego stanu, przez branch,
-implementację i testy, po zamknięcie zadania na tablicy — tak, żeby
-niezależnie od tego kto (który Claude, kiedy) je realizuje, proces wyglądał
-identycznie i nie było wątpliwości na jakim etapie jest zadanie.
+Jeden, zawsze taki sam przebieg realizacji zadania z tablicy GitHub Projects
+DocuWatcher — od odświeżenia stanu, przez branch, implementację i testy, po
+zamknięcie na tablicy.
 
-Ten skill **orkiestruje**, ale nie duplikuje logiki innych skilli:
+**Ty (główna sesja, Opus) jesteś orkiestratorem:** planujesz, podejmujesz
+decyzje, pilnujesz Definition of Done i rozmawiasz z użytkownikiem (Pawłem).
+Wykonawstwo i mechanikę delegujesz do agentów pluginu:
 
-- [`github-project-tasks`](../github-project-tasks/SKILL.md) — cały odczyt/zapis tablicy (fetch, status, pola, treść)
-- [`backend-development`](../backend-development/SKILL.md) — jak pisać kod w `DeadlineGuradBackend`
-- [`frontend-development`](../frontend-development/SKILL.md) — jak pisać kod w `akademiasaas-boilerplate`
-- [`blackbox-verification`](../blackbox-verification/SKILL.md) — weryfikacja na żywo, gdy zadanie tego wymaga
-- skill `run` (wbudowany) — uruchomienie aplikacji lokalnie, jeśli trzeba
+| Agent | Model | Do czego |
+|---|---|---|
+| `code-researcher` | Sonnet | fakty z kodu (`plik:linia`) do planu |
+| `backend-dev` / `frontend-dev` | Sonnet | implementacja + testy (preload `backend-development` / `frontend-development`) |
+| `test-runner` | Haiku | pełny zestaw testów (wołany przez implementera) |
+| `reviewer` | Opus, high | niezależny review diffu względem kryteriów |
+| `qa` | Sonnet | black-box (preload `blackbox-verification`) |
+| `committer` | Haiku | commit + push + `In review` |
+| `board-ops` | Haiku | operacje na tablicy przy zamknięciu |
 
-Skrypty tablicy wywołuj przez
-`"${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/<skrypt>.js"`.
+W `Agent` podawaj `subagent_type` z prefiksem pluginu (np.
+`docuwatcher-skills:backend-dev`). **Przy delegowaniu nie przekazuj parametru
+`model` — model jest ustalony w definicji agenta.**
 
-## Twarda zasada (nie do złamania)
+Ścieżki do przekazywania agentom (rozwinięte przy wczytaniu skilla):
+- `<SCRIPTS>` = `${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts`
+- `<SKILLS_DIR>` = `${CLAUDE_SKILL_DIR}/..`
+- szablony: [`reference/brief-template.md`](reference/brief-template.md),
+  [`reference/handoff-template.md`](reference/handoff-template.md)
 
-**Zakaz mergowania zmian do głównego brancha repozytorium — `main` albo
-`master`, zależnie od repo** (patrz tabela w kroku 0). Ten skill kończy się na
-pushu brancha zadania do zdalnego repo. Merge do głównego brancha
-(`git merge`, `gh pr merge`, bezpośredni push na `main`/`master`) jest **poza
-zakresem tego skilla** i nigdy nie jest wykonywany w jego ramach —
-niezależnie od tego, jak bardzo wszystko wygląda na gotowe. O merge decyduje
-użytkownik, osobno. Dotyczy obu repozytoriów i obu nazw — to, że repo używa
-`master` zamiast `main`, nie jest furtką.
+## Chudy kontekst orkiestratora
 
-## Kiedy używać
+Każdy token w Twoim kontekście jest płacony w każdej kolejnej turze po stawce Opusa.
 
-- Użytkownik prosi o realizację konkretnego zadania z Key z tablicy (np.
-  "zrealizuj T-220").
-- Trzeba przeprowadzić zadanie przez pełny cykl: branch → kod → testy →
-  (opcjonalnie) black-box → commit/push → zamknięcie na tablicy.
+- **Nie czytasz** dużych plików, pełnych diffów ani logów testów/buildów.
+  Wszystko, co produkuje dużo tekstu, robi subagent i zwraca zwięzły raport.
+- **Wolno Ci** przeczytać krótki, konkretny fragment kodu (zakres linii, do ~150
+  linii), gdy decyzja w planie zależy od jego dokładnego brzmienia, oraz
+  `git diff --stat` / `git status --short`. Na ścieżce S — patrz niżej — także
+  mały diff.
+- **Nie deleguj pojedynczej komendy** (narzut startu agenta > zysk). Grupuj kroki.
+- **Wznawiaj** istniejącego implementera (`SendMessage` z jego nazwą) zamiast
+  uruchamiać nowego — nowy musi od nowa czytać pliki.
+- Nie używaj wbudowanego `Explore`/`general-purpose` do zbierania faktów —
+  dziedziczą model sesji (Opus). Używaj `code-researcher`.
 
-Rzut oka na zadanie albo zmiana jednego pola ("jaki jest status T-220",
-"ustaw priorytet na P1") — to zakres `github-project-tasks`, nie tego skilla.
+## Twarde zasady (nie do złamania)
+
+1. **Zakaz mergowania do głównego brancha — `main` albo `master`, zależnie od
+   repo.** Skill kończy się na pushu brancha zadania. Merge (`git merge`,
+   `gh pr merge`, push na `main`/`master`) nigdy nie jest wykonywany w jego
+   ramach. Dotyczy obu repo i obu nazw. Dotyczy też wszystkich agentów.
+2. **`Done` tylko po wyraźnym potwierdzeniu użytkownika.**
+3. **Nigdy `--no-verify`**, `git add .`/`-A`.
+4. **Osobne branche/commity dla backendu i frontendu.**
+5. Implementer **nie commituje** i nie zmienia tablicy — robią to `committer` i
+   `board-ops` na Twoje polecenie.
 
 ## Zakres zadania a dług w kodzie
 
-Kod DocuWatcher ma sporo długu (monolity typu `RegisterBatch.tsx`, lokalne
-`@ExceptionHandler`, zduplikowane klienty HTTP). Skille implementacyjne każą
-pisać **nowy** kod czysto — ale to nie jest licencja na przepisywanie
-sąsiedniego kodu w ramach zadania. Obowiązuje jedna reguła:
-
-1. **Reguła skauta tylko w plikach, które zadanie i tak zmienia.** Drobne
-   porządki (wydzielenie funkcji, usunięcie duplikatu, poprawa typu, przeniesienie
-   handlera do `GlobalExceptionHandler`) w plikach, które edytujesz — tak, jeśli
-   są małe i pokryte testami.
-2. **Wszystko większe → propozycja nowego zadania**, nie realizacja "przy
-   okazji". Zapisz w podsumowaniu (krok 8) konkretną propozycję ticketu
-   (tytuł, zakres, Codebase) i zapytaj, czy założyć go na tablicy.
-3. **Brakujący fundament (np. wspólny `httpClient`, `QueryClientProvider`,
-   MSW) to osobne zadanie fundamentowe**, nie efekt uboczny zadania
-   funkcjonalnego. Jeśli skill implementacyjny wymaga fundamentu, którego
-   jeszcze nie ma — zatrzymaj się i zapytaj użytkownika, czy najpierw zrobić
-   zadanie fundamentowe, czy świadomie napisać kod po staremu (i zanotować dług).
+1. **Reguła skauta tylko w plikach, które zadanie i tak zmienia** (małe porządki
+   pokryte testami).
+2. **Wszystko większe → propozycja nowego zadania** w podsumowaniu (tytuł,
+   zakres, Codebase) i pytanie, czy założyć ticket.
+3. **Brakujący fundament** (np. `httpClient`, `QueryClientProvider`, MSW) to
+   osobne zadanie. Gdy implementer zgłosi go jako `DECYZJA POTRZEBNA` — to
+   decyzja o zakresie: **pytasz użytkownika**, czy najpierw zrobić fundament, czy
+   świadomie napisać kod po staremu (i zanotować dług).
 
 ## Warunki realizacji (Definition of Done)
 
-Zadanie można uznać za gotowe do zamknięcia **tylko** gdy wszystko poniżej
-jest prawdą jednocześnie:
+Zadanie jest gotowe do zamknięcia **tylko** gdy jednocześnie:
 
-1. Implementacja realizuje dokładnie kryteria ukończenia z treści zadania,
-   bez pomijania punktów i bez wykraczania poza sekcję "NIE WCHODZI" / "Out of
-   scope", jeśli istnieje.
-2. Napisano wszystkie testy wymienione w zadaniu — unit, integracyjne i
-   frontendowe/E2E, tam gdzie dotyczy.
-3. Napisano dodatkowe testy, jeśli podczas realizacji okazało się, że są
-   potrzebne (przypadek brzegowy, którego opis nie przewidział).
-4. Pełny lokalny zestaw testów przechodzi na zielono (`./mvnw test` dla
-   backendu, `pnpm precommit` dla frontendu).
-5. Jeśli zadanie tego wymagało (Ty decydujesz) — wykonano weryfikację
-   black-box i nie pozostały niewyjaśnione rozbieżności z intencją biznesową.
-6. Stan zadania na tablicy (status, opis) jest spójny z tym, co zrobiono.
+1. Implementacja realizuje dokładnie kryteria ukończenia, bez pomijania punktów i
+   bez wykraczania poza „NIE WCHODZI” / „Out of scope”.
+2. Napisano wszystkie testy wymienione w zadaniu (unit, integracyjne,
+   frontendowe/E2E, tam gdzie dotyczy).
+3. Napisano dodatkowe testy dla przypadków brzegowych ujawnionych w trakcie.
+4. Pełny lokalny zestaw testów zielony (`./mvnw test` backend, `pnpm precommit`
+   frontend) — potwierdzony raportem `test-runner`, nie deklaracją.
+5. Jeśli zadanie tego wymagało (Ty decydujesz) — black-box wykonany i bez
+   niewyjaśnionych rozbieżności z intencją biznesową.
+6. Stan zadania na tablicy spójny z tym, co zrobiono.
 
-Jeśli którykolwiek punkt nie jest spełniony — nie przechodź do
-commit/push/zamknięcia, wróć i dokończ.
+Którykolwiek punkt niespełniony → nie przechodź do commit/push/zamknięcia.
+
+## Proces proporcjonalny do zadania
+
+Po kroku 1 sklasyfikuj ścieżkę i podaj ją użytkownikowi jednym zdaniem.
+
+**Ścieżka S** — wszystkie warunki naraz:
+- `Size` = `XS` albo `S`,
+- `Codebase` ≠ `both`,
+- zadanie **nie** dotyka: migracji Flyway / encji / schematu, kontraktu API
+  (DTO, endpoint, kody błędów), autoryzacji / scopingu `workspaceId`, treści PoS
+  ani eksportów (PDF, CSV), niezmienników massbalance (append-only, okresy,
+  Reguły 1–9).
+
+Na ścieżce S: plan w formie zwięzłego briefu (bez osobnego researchu, jeśli
+zadanie wskazuje pliki), implementer, **bez reviewera** — zamiast niego sam
+przeglądasz diff, jeśli ma ≤ ~200 linii (`git diff <główny-branch>...HEAD` +
+niezacommitowane); większy diff → `reviewer`. Jeśli w trakcie okaże się, że
+zadanie dotyka czegoś z listy wyżej → przejdź na ścieżkę pełną (reviewer
+obowiązkowy).
+
+<!-- PLAN AWARYJNY (nie aktywny): jeśli limit nadal nie wystarcza, punkt
+rozgałęzienia jest tutaj — dla ścieżki S zamiast orkiestracji z sesji Opus
+proponujesz użytkownikowi realizację w sesji Sonnet z `reviewer` (Opus) na końcu. -->
+
+**Ścieżka pełna** — `M`, `L`, `XL`, `Codebase: both` albo którykolwiek obszar z
+listy wyżej: research → plan → brief → implementer(zy) → weryfikacja raportu →
+reviewer → poprawki → (black-box) → commit.
 
 ## Workflow
 
 ### 0. Ustal repozytorium docelowe
 
-DocuWatcher to **dwa oddzielne repozytoria**, nie monorepo:
+DocuWatcher to **dwa oddzielne repozytoria**:
 
-| `Codebase` | Repo | Ścieżka lokalna | Stack | Główny branch |
-|---|---|---|---|---|
-| `backend` | `DeadlineGuradBackend` | `C:\DocuWatcherWorkspace\DeadlineGuradBackend` | Spring Boot / Java | `main` |
-| `frontend` | `akademiasaas-boilerplate` | `C:\DocuWatcherWorkspace\akademiasaas-boilerplate` | React / TypeScript | `master` |
+| `Codebase` | Repo | Ścieżka lokalna | Stack | Główny branch | Agent |
+|---|---|---|---|---|---|
+| `backend` | `DeadlineGuradBackend` | `C:\DocuWatcherWorkspace\DeadlineGuradBackend` | Spring Boot / Java | `main` | `backend-dev` |
+| `frontend` | `akademiasaas-boilerplate` | `C:\DocuWatcherWorkspace\akademiasaas-boilerplate` | React / TypeScript | `master` | `frontend-dev` |
 
-**Główny branch** (dalej: `<główny-branch>`) to `main` **albo** `master` —
-repozytoria nie są ujednolicone. Nie zakładaj nazwy z pamięci; przed krokiem 3
-potwierdź ją w repo:
+Główny branch potwierdź w repo (`git symbolic-ref --short refs/remotes/origin/HEAD`);
+wynik różny od tabeli → wierz repo. Repo wskazuje pole **`Codebase`** (klucz
+`codebase` w JSON). `both` → dwa branche, po jednym w każdym repo. Brak wartości
+lub niejednoznaczność → **zapytaj użytkownika**.
 
-```bash
-git symbolic-ref --short refs/remotes/origin/HEAD   # np. origin/master → <główny-branch> = master
-```
-
-Wynik różny od tabeli → wierz repo i zaktualizuj tabelę w tym skillu.
-
-Repo wskazuje pole **`Codebase`** zadania (w JSON z `fetch-task.js`: klucz
-`codebase`). Nie myl go z wbudowanym polem `Repository`, które dla draftów
-jest puste. `both` albo brak wartości → oceń na podstawie treści; dla `both`
-potrzebujesz **dwóch osobnych branchy**, po jednym w każdym repo. W razie
-niejednoznaczności **zapytaj użytkownika** — nie zgaduj.
-
-### 1. Odśwież stan zadania i sprawdź gotowość
+### 1–2. Odśwież stan, sprawdź gotowość, zastrzeż zadanie (sam, 3 komendy)
 
 ```bash
 node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/fetch-task.js" <KEY>
 node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/check-readiness.js" <KEY>
+node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/set-status.js" <KEY> "In progress"   # tylko gdy ready
 ```
 
-- Exit `0` / `ready: true` (status `Backlog` lub `Ready`, zależności `Done`)
-  → można zaczynać.
-- `already_in_progress` → ktoś (lub inna sesja Claude) już nad tym pracuje.
-  **Zatrzymaj się i zapytaj**, czy kontynuować (mogło dojść do przerwanej
-  sesji) — nie zaczynaj po cichu równoległej pracy.
-- `in_review` → branch prawdopodobnie już istnieje i czeka na ocenę. Zapytaj,
-  czy chodzi o poprawki po review (wtedy kontynuuj na istniejącym branchu).
+Treść zadania (`content.body`) zostaje w Twoim kontekście — kryteria wklejasz z
+niej dosłownie do briefu i do review.
+
+- `ready: true` → dalej.
+- `already_in_progress` → mogła zostać przerwana sesja: sprawdź notatkę
+  przekazania (sekcja „Pauza i wznowienie”); brak notatki → **zapytaj**, czy
+  kontynuować. Nie zaczynaj po cichu równoległej pracy.
+- `in_review` → zapytaj, czy chodzi o poprawki po review (wtedy praca na
+  istniejącym branchu, nowy implementer z briefem „stan zastany”).
 - `already_done` → poinformuj, zapytaj czy chodzi o inne zadanie.
-- `blocked_by_dependencies` → pokaż niezamknięte zależności i zapytaj, jak
-  postąpić.
-- `unknown_status:<x>` → tablica ma status, którego skrypty nie znają —
-  zgłoś użytkownikowi (patrz `github-project-tasks/reference/SETUP.md`).
+- `blocked_by_dependencies` → pokaż zależności, zapytaj.
+- `unknown_status:<x>` → zgłoś (patrz `github-project-tasks/reference/SETUP.md`).
 
-### 2. Zastrzeż zadanie
+### 3. Przygotuj branch (sam)
 
-```bash
-node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/set-status.js" <KEY> "In progress"
-```
+W repo z kroku 0 (przy `both` — w obu):
+1. `git status --short` — obce niezacommitowane zmiany → zatrzymaj się i zapytaj.
+2. `git checkout <główny-branch>` + `git pull`.
+3. `git checkout -b <KEY>`. Branch istnieje lokalnie/zdalnie → zapytaj, czy
+   wznowić (sekcja „Pauza i wznowienie”), czy zacząć od nowa; nie usuwaj go sam.
 
-### 3. Przygotuj branch
+### Plan (Ty) — fakty przez `code-researcher`
 
-W repozytorium z kroku 0:
+1. Lista pytań o kod potrzebnych do decyzji (gdzie jest logika X, jak jest
+   zrobione Y w sąsiednim module, jaki kształt ma DTO Z, jakie testy już
+   istnieją). Jedno wywołanie `code-researcher` z całą listą; przy `both` —
+   pytania o oba repo w tym samym wywołaniu.
+2. Na podstawie raportu: pliki, kolejność, decyzje projektowe z uzasadnieniem,
+   lista testów (z zadania + dodatkowe). Kluczowy fragment kodu, od którego
+   zależy decyzja, możesz doczytać sam (zakres linii).
+3. Decyzje **o zakresie lub priorytetach biznesowych** (co wchodzi, jak ma się
+   zachować system dla operatora, kompromis UX) → zapytaj użytkownika przed
+   briefem. Decyzje techniczne podejmujesz sam.
 
-1. `git status` — niezacommitowane zmiany niezwiązane z zadaniem → zatrzymaj
-   się i zapytaj (nie gub cudzej pracy).
-2. `git checkout <główny-branch>`, `git pull` (`main` albo `master` — patrz krok 0).
-3. `git checkout -b <KEY>` — nazwa brancha to **dokładnie** Key (np.
-   `T-220`). Branch już istnieje lokalnie lub zdalnie → zapytaj, czy wznowić,
-   czy zacząć od nowa; nie usuwaj go samodzielnie.
+### Brief → implementacja i testy (4–5)
 
-### 4. Implementacja
+Brief wg [`reference/brief-template.md`](reference/brief-template.md):
+kryteria i „NIE WCHODZI” **dosłownie**, plan, testy, ograniczenia, format raportu.
 
-- Kryteria ukończenia zadania to źródło prawdy, nie domysły.
-- Zakres według sekcji "Zakres zadania a dług w kodzie" wyżej.
-- **Backend** → zastosuj [`backend-development`](../backend-development/SKILL.md)
-  (struktura per-feature, serwis + `@Transactional`, `*Factory`, kontrakt
-  błędów, ownership check z testami, soft delete, Flyway, self code review).
-- **Frontend** → zastosuj [`frontend-development`](../frontend-development/SKILL.md)
-  (warstwa HTTP, React Query, podział komponentów, stylowanie, i18n, a11y,
-  testy MSW, self code review).
-- **Oba repo** → każda część w swoim repo z właściwym skillem, osobne
-  branche/commity/push; zaznacz to w podsumowaniu.
+Uruchom implementera z **nazwą** `<agent>-<KEY>` (np. `backend-dev-T-220`). Przy
+`both` — `backend-dev-<KEY>` i `frontend-dev-<KEY>` **równolegle** (dwa wywołania
+`Agent` w jednej wiadomości), każdy w swoim repo i na swoim branchu; kontrakt API
+między nimi ustalasz w planie i wpisujesz do obu briefów identycznie.
 
-### 5. Testy
+Agenci chodzą w tle — poczekaj na powiadomienie o zakończeniu, nie wymyślaj ich
+wyniku.
 
-- Napisz testy dokładnie tak, jak opisuje to zadanie, plus dodatkowe dla
-  przypadków, których opis nie pokrył.
-- Uruchom cały lokalny zestaw testów właściwego repo — zielony, zanim
-  pójdziesz dalej. Czerwone → napraw teraz, nie odkładaj.
+**`DECYZJA POTRZEBNA` od implementera:**
+- decyzja techniczna → rozstrzygasz sam,
+- decyzja o zakresie / priorytecie biznesowym / brakującym fundamencie → pytasz
+  użytkownika (AskUserQuestion, z rekomendacją implementera i własną),
+- potem wznawiasz **tego samego** implementera (`SendMessage` do jego nazwy) z
+  rozstrzygnięciem (szablon w `brief-template.md`).
 
-### 6. Zdecyduj o weryfikacji black-box
+Jeśli implementer wraca z `DECYZJA POTRZEBNA` na drobiazgach — rozstrzygnij i
+dopisz w odpowiedzi, że takie sprawy rozstrzyga sam.
 
-Wymagana, gdy zadanie zmienia obserwowalne zachowanie (nowy/zmieniony
-endpoint, przepływ UI, efekt uboczny między modułami) na tyle, że testy nie są
+### Weryfikacja raportu implementera (Ty)
+
+- Każde kryterium z zadania ma odpowiednik w „Zmienione pliki” / „Testy”?
+- `git diff --stat <główny-branch>...HEAD` + `git status --short` zgadzają się z
+  listą zmienionych plików (pliki spoza raportu = pytanie do implementera).
+- Pełny zestaw testów: PASS z raportu `test-runner`.
+- „Decyzje podjęte samodzielnie” i „Odstępstwa” — każdą oceń; niezgoda → poprawka.
+- Braki → `SendMessage` do implementera, zanim pójdziesz do review.
+
+### Review (ścieżka pełna; na S — warunkowo, patrz wyżej)
+
+Uruchom `reviewer` z: treścią zadania (kryteria + „NIE WCHODZI”) dosłownie,
+planem i decyzjami (Twoimi i zaakceptowanymi decyzjami implementera), repo,
+branchem, `<główny-branch>`, `<SKILLS_DIR>`. Diffu **nie wklejasz** i sam go nie
+oglądasz — reviewer czyta go sam. Przy `both` — jeden reviewer na oba repo
+(widzi spójność kontraktu).
+
+Wynik: **blokujące** / **do poprawy** / **sugestie**. Ty decydujesz:
+- blokujące → obowiązkowo do poprawy,
+- do poprawy / sugestie → wybierasz; odrzucone zapisujesz z powodem,
+- z punktem blokującym, z którym się nie zgadzasz → nie poprawiasz po cichu ani
+  nie ignorujesz: przedstawiasz go użytkownikowi w podsumowaniu (krok 8) z
+  argumentacją.
+
+Poprawki → **ten sam** implementer przez `SendMessage` z listą punktów
+(`plik:linia`). **Jedna runda review.** Druga tylko, gdy poprawki blokujących
+były nietrywialne (zmiana logiki/modelu, nie kosmetyka) — wtedy wznów tego
+samego reviewera (`SendMessage`) z prośbą o sprawdzenie tylko poprawek.
+
+### 6. Black-box (decyzja: Ty, wykonanie: `qa`)
+
+Wymagany, gdy zadanie zmienia obserwowalne zachowanie (nowy/zmieniony endpoint,
+przepływ UI, efekt uboczny między modułami) na tyle, że testy nie są
 wystarczającym dowodem. Czysto wewnętrzny refaktor zwykle nie wymaga.
 
-Jeśli tak:
+1. Środowisko: backend `http://localhost:9090` z Firebase Auth Emulator, frontend
+   `pnpm dev`. Działa → wykorzystaj; nie → uruchom (skill `run` albo standardowy
+   start repo). Nowa migracja Flyway → restart backendu.
+2. `qa` dostaje: kryteria dosłownie, scenariusze (Ty je układasz — persona,
+   pełny cykl, przypadki brzegowe), stan środowiska, dane/workspace.
+3. Rozbieżności oceniasz Ty: bug → wznów implementera z opisem, potem powtórz
+   pełny zestaw testów i scenariusz `qa` (wznów tego samego `qa`). „Do oceny przez
+   człowieka” → przekaż użytkownikowi.
 
-1. Środowisko lokalne: backend `http://localhost:9090` z Firebase Auth
-   Emulator, frontend przez `pnpm dev`. Już działa → wykorzystaj; nie →
-   uruchom skillem `run` albo standardowym startem repo. Nowa migracja Flyway
-   → restart backendu.
-2. Weryfikacja wg `blackbox-verification`, porównując z kryteriami zadania
-   (nie z kodem).
-3. Bug → napraw i **powtórz** krok 5 oraz black-box. Nie commituj ze znanym
-   niedziałającym scenariuszem.
+Nie commituj ze znanym niedziałającym scenariuszem.
 
-### 7. Commit i push brancha zadania
+### 7. Commit i push (`committer`)
 
-Dopiero gdy testy są zielone (i black-box potwierdza zgodność):
+Jedno wywołanie `committer` na repo (przy `both` — dwa, mogą iść równolegle) z:
+- repo, branch `<KEY>`, `<główny-branch>`, `<SCRIPTS>`, Key,
+- **listą plików zadania** (z raportu implementera, zweryfikowaną `--stat`),
+- **gotowym komunikatem**: `type(scope): opis (T-XXX)` (≤ 100 znaków pierwszej
+  linii; `mass-balance` jako scope dla KZR; ten sam format w backendzie) +
+  linia `Co-Authored-By`, jeśli obowiązuje.
 
-1. `git status`/`git diff` — stage **tylko** pliki związane z zadaniem
-   (`git add <ścieżki>`, nie `git add .`/`-A`).
-2. **Pułapka we froncie:** pre-commit w `akademiasaas-boilerplate` uruchamia
-   `lint-staged`, którego konfiguracja kończy się `git add .` — dołączy do
-   commita **wszystkie** zmienione pliki w repo, nie tylko Twoje. Przed
-   commitem upewnij się, że w working tree nie ma obcych zmian (jeśli są —
-   zapytaj użytkownika, czy je odłożyć `git stash`), a po commicie sprawdź
-   `git show --stat HEAD`.
-3. Komunikat commita:
-   - `akademiasaas-boilerplate` — **musi** być `type(scope): opis (T-XXX)`
-     (commitlint w hooku `commit-msg`; `mass-balance` jako scope dla KZR).
-     Plain `T-XXX: opis` zostanie odrzucony.
-   - `DeadlineGuradBackend` — brak commitlint; używaj tego samego formatu
-     `type(scope): opis (T-XXX)` dla spójności między repo.
-   - **Nigdy `--no-verify`.** Hook odrzucił → napraw przyczynę.
-4. `git push -u origin <KEY>`.
-5. ```bash
-   node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/set-status.js" <KEY> "In review"
+`committer` zna pułapki (lint-staged z `git add .` we froncie, commitlint, zakaz
+`--no-verify`, `git add` tylko plików zadania, `git show --stat HEAD`, zakaz merge).
+Wynik:
+- `OK` → dalej,
+- `STOP` z błędem hooka → wznów implementera z dosłownym błędem, potem ponów
+  `committer`,
+- obce zmiany w working tree → zapytaj użytkownika (odłożyć `git stash`? czyje?),
+- `ALARM` (plik spoza listy w commicie) → zatrzymaj się i przedstaw użytkownikowi.
+
+Pull Request tylko na wyraźną prośbę użytkownika.
+
+### 8. Podsumowanie, potwierdzenie, zamknięcie
+
+1. Podsumuj (po polsku): co zaimplementowano, repo/branch/commit, testy i wynik,
+   review (co poprawiono, co świadomie odrzucono i dlaczego, punkty sporne),
+   black-box (czy i z jakim wynikiem), propozycje ticketów na dług.
+2. **Zapytaj wprost, czy zadanie jest gotowe do zamknięcia.**
+3. Po potwierdzeniu — jedno wywołanie `board-ops`: „użytkownik potwierdził
+   zamknięcie”, `<SCRIPTS>`, Key, tekst sekcji do dopisania:
+
+   ```
+   ## Realizacja
+   - Repo / branch / commit: …
+   - Co zrobiono: …
+   - Testy: …
    ```
 
-Żadnej operacji scalającej z głównym branchem (`main`/`master`). Pull Request tylko na wyraźną prośbę
-użytkownika.
+   `board-ops` dopisuje sekcję do istniejącej treści (bez nadpisywania kryteriów)
+   i ustawia `Done`.
+4. Brak potwierdzenia → zostaw `In review`, zapisz czego brakuje.
+5. Usuń notatkę przekazania `<KEY>.md`, jeśli istniała.
+6. **Przypomnij o `/clear` przed kolejnym zadaniem** — nowe zadanie w tej samej
+   sesji niesie cały kontekst poprzedniego w każdej turze.
 
-### 8. Potwierdzenie i zamknięcie zadania
+## Pauza i wznowienie
 
-1. Podsumuj: co zaimplementowano, w którym repo/branchu, jakie testy
-   napisano i czy przeszły, czy i jak przeprowadzono black-box, oraz
-   propozycje nowych ticketów na napotkany dług (patrz "Zakres zadania a dług").
-2. **Zapytaj wprost, czy zadanie jest gotowe do zamknięcia.** Nie zamykaj na
-   podstawie własnej oceny.
-3. Po potwierdzeniu:
-   ```bash
-   node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/fetch-task.js" <KEY>   # aktualna treść do dopisania
-   node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/set-status.js" <KEY> Done
-   node "${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts/update-content.js" <KEY> --body-file <plik>.md
-   ```
-   Plik z opisem = **dotychczasowa treść zadania + dopisana sekcja
-   "Realizacja"** (co zrobiono, repo, branch). Nie nadpisuj kryteriów.
-4. Brak potwierdzenia → zostaw `In review`, zapisz czego brakuje, nie zgaduj
-   kolejnego kroku.
+Wznawianie starej sesji po wygaśnięciu cache (cache głównej sesji żyje ~1 h od
+ostatniej wymiany) przelicza cały kontekst od nowa po stawce Opusa. Dlatego
+przerwy obsługujemy notatką i nową sesją.
+
+**Pauza** — gdy użytkownik pisze, że robi przerwę („pauza”, „wracam później”,
+„kończę na dziś”, „przerwa”):
+1. Poczekaj na zakończenie działających agentów albo zanotuj, że działają (ich
+   wyniku nie będzie w nowej sesji).
+2. Zapisz notatkę wg [`reference/handoff-template.md`](reference/handoff-template.md)
+   do `C:\DocuWatcherWorkspace\.claude\handoff\<KEY>.md` (poza repo git — nie
+   trafi do commita). Stan repo ustal komendami (`git status --short`,
+   `git log -1 --oneline`), nie z pamięci.
+3. Nie commituj „na zapas” i nie zmieniaj statusu (zostaje `In progress`).
+4. Przypomnij: „Wróć w **nowej sesji** (`/clear` albo nowe okno) i napisz
+   `kontynuuj <KEY>`.”
+
+**Wznowienie** — „kontynuuj <KEY>” albo w kroku 1 `already_in_progress` /
+istniejący branch:
+1. Przeczytaj `C:\DocuWatcherWorkspace\.claude\handoff\<KEY>.md` (brak → zbierz
+   stan z repo i tablicy i powiedz o tym).
+2. `fetch-task.js` (treść mogła się zmienić), `git status --short`,
+   `git diff --stat <główny-branch>...HEAD` w repo zadania.
+3. Potwierdź z użytkownikiem stan i plan dokończenia (krótko: co zrobione, co
+   zostało, otwarte pytania).
+4. Uruchom **nowego** implementera (poprzedni nie istnieje w nowej sesji) z
+   briefem + sekcją „Stan zastany” (szablon w `brief-template.md`) — implementer
+   sam przegląda `git diff`, Ty go nie wklejasz.
+5. Dalej normalnym przebiegiem (weryfikacja raportu, review, …).
 
 ## Czego unikać
 
-- Implementacji przed ustawieniem `In progress`.
-- Pomijania `check-readiness.js` "bo wiadomo, że zadanie jest wolne".
-- Mieszania zmian backendu i frontendu w jednym branchu/commicie.
+- Implementacji przed `In progress`; pomijania `check-readiness.js`.
+- Czytania pełnych diffów, dużych plików i logów w głównej sesji (poza wyjątkami
+  wyżej).
+- Przekazywania parametru `model` przy delegowaniu.
+- Uruchamiania nowego implementera, gdy można wznowić istniejącego.
+- Przepisywania kryteriów własnymi słowami w briefie lub dla reviewera.
+- Mieszania backendu i frontendu w jednym branchu/commicie.
 - Commit/push z czerwonymi testami albo niewyjaśnionym wynikiem black-box.
-- Merge/rebase na głównym branchu, push na `main`/`master` — zero wyjątków, w obu repo.
-- Zakładania, że główny branch to `main` — frontend używa `master`; sprawdź (krok 0).
+- Merge/rebase na głównym branchu, push na `main`/`master` — zero wyjątków.
 - `Done` bez wyraźnego potwierdzenia użytkownika.
-- Refaktoru "przy okazji" poza regułą skauta — większy dług to nowy ticket.
-- Pomijania `backend-development`/`frontend-development` dla dotkniętego repo.
+- Refaktoru „przy okazji” poza regułą skauta.
 - `git add .` i `--no-verify`.
 - Czytania `tickets.md`/`PROGRESS.md` jako źródła zadań — tablica jest jedynym
   źródłem prawdy.

@@ -51,6 +51,7 @@ DocuWatcherClaudeSkills/
 ├── .claude-plugin/
 │   ├── marketplace.json
 │   └── plugin.json
+├── agents/                 # subagenci (model/effort/tools we frontmatterze)
 ├── skills/
 │   ├── nazwa-skilla/
 │   │   ├── SKILL.md
@@ -69,6 +70,32 @@ DocuWatcherClaudeSkills/
 | [`github-project-tasks`](skills/github-project-tasks/SKILL.md) | Pobieranie świeżego stanu zadań i zarządzanie ich cyklem życia (status, priorytet itd.) na tablicy GitHub Projects (`NowyPG97` / projekt nr 1) |
 | [`github-task-delivery`](skills/github-task-delivery/SKILL.md) | Standardowy przebieg realizacji zadania z tablicy: ustalenie właściwego repo (pole `Codebase`) → branch → implementacja (z konwencjami `backend-development`/`frontend-development` zależnie od zadania) → testy → (opcjonalnie) black-box → commit/push → zamknięcie zadania (bez mergowania do głównego brancha `main`/`master`) |
 | [`architecture-product-analysis`](skills/architecture-product-analysis/SKILL.md) | Analiza kwestii w dwóch rolach naraz — architekt (wpływ techniczny, warianty, ryzyka) i product owner (kto, wartość, zakres, kryteria akceptacji) — z weryfikacją zgodności z dokumentami KZR INiG (cytaty ze źródła); wynik to rekomendacja, nie kod |
+
+## Agenci i podział modeli (od 3.0.0)
+
+Główna sesja działa na **Opusie** (`"model": "opus"` w
+`C:\DocuWatcherWorkspace\.claude\settings.json`) i jest orkiestratorem: planuje,
+decyduje, pilnuje Definition of Done, rozmawia z użytkownikiem. Wszystko, co
+produkuje dużo tekstu (czytanie kodu, implementacja, logi testów, black-box), robią
+agenci z katalogu [`agents/`](agents/) i zwracają zwięzły raport.
+
+| Agent | Model | Effort | Rola |
+|---|---|---|---|
+| `backend-dev` | sonnet | domyślny | implementacja + testy w `DeadlineGuradBackend` (preload `backend-development`, cache 1 h) |
+| `frontend-dev` | sonnet | domyślny | implementacja + testy w `akademiasaas-boilerplate` (preload `frontend-development`, cache 1 h) |
+| `qa` | sonnet | domyślny | black-box (preload `blackbox-verification`), bez edycji plików |
+| `reviewer` | opus | high | niezależny review diffu względem kryteriów, tylko odczyt |
+| `code-researcher` | sonnet | domyślny | fakty z kodu z `plik:linia` |
+| `kzr-researcher` | sonnet | domyślny | dosłowne cytaty KZR albo „brak podstawy” |
+| `history-researcher` | sonnet | domyślny | tablica, archiwum analiz, (na zlecenie) arkusze klientów |
+| `test-runner` | haiku | low | pełny zestaw testów → PASS / lista failów |
+| `board-ops` | haiku | low | operacje na tablicy przy zamknięciu zadania |
+| `committer` | haiku | low | commit + push + `In review` |
+
+Zasady: przy delegowaniu skille nie przekazują parametru `model` (model jest w
+definicji agenta); Haiku tylko do mechaniki; implementerzy są wznawiani
+(`SendMessage`), a nie uruchamiani od nowa. Przerwy w zadaniu — notatka w
+`C:\DocuWatcherWorkspace\.claude\handoff\<KEY>.md` i nowa sesja („kontynuuj T-XXX”).
 
 ## Tablica zadań
 

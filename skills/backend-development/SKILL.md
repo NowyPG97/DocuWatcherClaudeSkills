@@ -1,7 +1,7 @@
 ---
 name: backend-development
 description: Use automatically whenever a task touches the DocuWatcher backend (DeadlineGuradBackend — Spring Boot 3.5.9 / Java 21 / Maven) — new or changed endpoints, controllers, services, DTOs, entities, repositories, Flyway migrations, or any backend business logic; e.g. "dodaj endpoint", "zaimplementuj serwis", "napisz DTO", "dodaj migrację Flyway", "stwórz encję", "zmień logikę w kontrolerze", "backend task", "popraw walidację w API". Enforces per-feature package layout, concrete-class @Transactional services with constructor injection (interface+impl only for swappable integrations, no default @Lazy setter injection for new circular deps), manual DTO mapping via static *Factory, the ErrorResponseDTO/ValidationErrorResponseDTO/GlobalExceptionHandler error contract, MANDATORY tests for both IDOR variants (foreign workspaceId, and own workspaceId + foreign resource id), Status ACTIVE/INACTIVE soft delete, Flyway naming, JUnit5/Mockito/AssertJ testing, and a mandatory self code review. Zero CI/lint/pre-commit exists in this repo — this skill's rules are the only enforcement. Not for frontend (akademiasaas-boilerplate), infra/DevOps, or GitHub Project board tasks.
-version: 3.0.0
+version: 3.1.0
 ---
 
 # Rozwój backendu DocuWatcher (Backend Development)
@@ -14,6 +14,14 @@ przeglądu realnego kodu (`asset`, `massbalance`, `common`, `exception`,
 `security`), nie z ogólnych zasad Springa. Gotowy szkielet modułu do
 adaptacji: [`reference/patterns.md`](reference/patterns.md). Cykl
 zadania/git obsługuje [`github-task-delivery`](../github-task-delivery/SKILL.md).
+
+## Praca jako subagent (`backend-dev`)
+
+Gdy ten skill działa jako preload agenta-implementera: nie masz kontaktu z
+użytkownikiem. Każde „zapytaj użytkownika” / „zgłoś użytkownikowi” w tym skillu
+oznacza: zatrzymaj się i zwróć orkiestratorowi blok `DECYZJA POTRZEBNA` (format w
+definicji agenta). Nie commitujesz (sekcja „Commity” dotyczy komunikatu, który
+przygotowuje orkiestrator) i nie zmieniasz tablicy.
 
 ## Kiedy używać
 

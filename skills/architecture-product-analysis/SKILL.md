@@ -2,6 +2,9 @@
 name: architecture-product-analysis
 description: >-
   Use automatically whenever the user asks to analyze, assess, or think through an issue, idea, change request, bug report, or client feedback concerning DocuWatcher (especially the KZR mass-balance module) — e.g. "przeanalizuj", "przeanalizuj kwestię", "jaki to ma wpływ", "oceń pomysł", "czy to zgodne z KZR", "czy KZR tego wymaga", "rozważ", "co o tym myślisz", "zrób analizę", "przemyśl to", "jakie są konsekwencje", "czy to ma sens biznesowo", "zgłoszenie od klienta — co z tym zrobić". Combines two roles — software architect (technical impact on the system: data model, business rules, API, migrations, risks, options) and product owner (who needs it, why, value, scope, acceptance criteria) — and checks every conclusion against the KZR INiG context documents with exact citations. Produces an analysis and recommendation, never code. Not for implementing a board task (use github-task-delivery), not for live QA (use blackbox-verification), not for pure code review.
+model: opus
+effort: high
+version: 2.0.0
 ---
 
 # Analiza architektoniczno-produktowa (Architekt + Product Owner)
@@ -17,6 +20,15 @@ description: >-
 Nad obiema stoi **zgodność z dokumentami KZR INiG** — każdy wniosek o tym, czego
 KZR wymaga, musi mieć cytat ze źródła. Mapa dokumentów i sposób ich czytania:
 [`reference/kzr-sources.md`](reference/kzr-sources.md).
+
+**Model i koszt.** Analiza działa na Opusie z `effort: high`. Sesja i tak jest na
+Opusie, więc `model: opus` nie zmienia modelu ani nie unieważnia cache — zabezpiecza
+tylko przypadek sesji na innym modelu. Materiał zbierają agenci na Sonnecie (krok 2);
+synteza, werdykty i rekomendacja są Twoje. **Przy delegowaniu nie przekazuj
+parametru `model` — model jest ustalony w definicji agenta.** Nie używaj
+wbudowanego `Explore` ani `general-purpose` do zbierania materiału — dziedziczą
+model sesji (Opus). Analizę najlepiej zaczynać w nowej sesji (`/clear`): jeśli
+rozmowa niesie kontekst innego zadania, zaproponuj to użytkownikowi jednym zdaniem.
 
 **Wynikiem jest analiza i rekomendacja, nie kod.** Nie edytujesz plików
 repozytoriów, nie zakładasz ticketów i nie zmieniasz tablicy bez zgody
@@ -59,17 +71,26 @@ feedback klienta/UX. Jeśli pytanie jest wieloznaczne w sposób zmieniający
 całą analizę — zapytaj (AskUserQuestion) *przed* zbieraniem materiału. Drobne
 niejasności rozstrzygnij sam i zapisz jako założenie.
 
-### 2. Zbierz materiał (równolegle, gdzie się da)
+### 2. Zbierz materiał — równolegle przez agentów
 
-| Źródło | Gdzie | Po co |
+Wyślij **w jednej wiadomości** równoległe wywołania `Agent` (z prefiksem pluginu,
+np. `docuwatcher-skills:code-researcher`), każde z konkretną listą pytań.
+Pytania formułuj precyzyjnie — ogólnik „sprawdź wszystko o X” daje ogólnik.
+
+| Agent | Źródło | Co mu przekazać |
 | --- | --- | --- |
-| Kod backendu | `DocuWatcherWorkspace\DeadlineGuradBackend`, pakiet `com.deadlineguard.backend.massbalance` (encje, `service/`, `validation/`, migracje Flyway) | Obecne zachowanie, reguły biznesowe (komentarze „Reguła 1–9”), ograniczenia schematu |
-| Kod frontendu | `DocuWatcherWorkspace\akademiasaas-boilerplate` | Co widzi i może zrobić operator |
-| Dokumenty KZR | `DocuWatcherWorkspace\Dokumenty KZR\` → [`reference/kzr-sources.md`](reference/kzr-sources.md) | Podstawa zgodności, cytaty |
-| Tablica zadań | skill `github-project-tasks` (`list-tasks.js`, `fetch-task.js`) | Czy temat ma już ticket, jaki status, co ustalono |
-| Wcześniejsze analizy | `DocuWatcherWorkspace\Archiwum\kzr-mass-balance-*.md` (grep po słowach kluczowych) | Decyzje i diagnozy z przeszłości; definicje Reguł 1–9 w `kzr-mass-balance-warstwa1-plan.md` |
-| Realne dane klientów | `Bilans biomasy ROZMAITEX.xlsx`, `Kopia Załącznik 7- BILANS BIOMASY HYDREW …xlsx` (skill `xlsx`) | Czy operator faktycznie tak pracuje (klasa `PRAKTYKA OPERATORA`) |
-| Pamięć | `MEMORY.md` + powiązane pliki | Wcześniejsze decyzje i preferencje Pawła |
+| `code-researcher` | backend `DeadlineGuradBackend` (pakiet `com.deadlineguard.backend.massbalance`: encje, `service/`, `validation/`, Flyway; komentarze „Reguła 1–9”) + frontend `akademiasaas-boilerplate` (co widzi i może zrobić operator) | pytania o obecne zachowanie, reguły, ograniczenia schematu, UI |
+| `kzr-researcher` | `Dokumenty KZR\` | pytania o wymogi; ścieżka mapy dokumentów `${CLAUDE_SKILL_DIR}/reference/kzr-sources.md`; katalog tymczasowy = scratchpad sesji |
+| `history-researcher` | tablica + `Archiwum\kzr-mass-balance-*.md` + pamięć; **arkusze klientów tylko przy klasie `PRAKTYKA OPERATORA`** (`Bilans biomasy ROZMAITEX.xlsx`, `Kopia Załącznik 7- BILANS BIOMASY HYDREW …xlsx` — wskaż, czego szukać) | czy temat ma ticket / decyzję / diagnozę; czy operator faktycznie tak pracuje; `<SCRIPTS>` = `${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts` |
+
+Agenci zwracają **same fakty bez opinii** (`plik:linia`, dosłowne cytaty z
+dok./§/str., Key + status, komórki arkusza). Raport niepełny albo rodzi nowe
+pytanie → wznów **tego samego** agenta (`SendMessage`) z dopytaniem zamiast
+uruchamiać nowego. Krótki fragment kodu, od którego zależy werdykt, możesz
+doczytać sam (konkretny zakres linii) — nie czytaj całych plików.
+
+Pamięć projektu (`MEMORY.md`) masz już w kontekście — korzystaj z niej, ale fakty
+datuj i weryfikuj przez agentów.
 
 Archiwum `tickets.md`/`PROGRESS.md` to martwy backup — **statusu nie bierz stamtąd**,
 tylko z tablicy.
@@ -113,6 +134,12 @@ Dla każdego wymagania dotkniętego zmianą zbuduj wiersz macierzy:
 
 | Wymaganie | Źródło (dok., §, str.) + cytat | Stan obecny systemu | Po zmianie | Werdykt |
 | --- | --- | --- | --- | --- |
+
+**Weryfikacja cytatów (obowiązkowa):** każdy cytat, na którym opiera się werdykt
+`LUKA` albo klasa `WYMÓG KZR`, weryfikujesz **sam** — czytasz wskazaną stronę
+dokumentu (Read na PDF z parametrem `pages` albo `pdftotext -f N -l N -enc UTF-8`)
+i potwierdzasz, że fragment brzmi dosłownie tak i nie ma wyjątku w sąsiednim
+akapicie / „UWAGA”. Cytat niepotwierdzony nie może podtrzymać werdyktu.
 
 Werdykty: `ZGODNE` · `LUKA` (system nie spełnia wymogu) · `RYZYKO` (spełnia,
 ale zmiana może to złamać / zależy od konfiguracji) · `POZA KZR` (brak

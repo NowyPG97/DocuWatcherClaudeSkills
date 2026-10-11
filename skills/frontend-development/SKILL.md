@@ -2,7 +2,7 @@
 name: frontend-development
 description: >-
   Use automatically whenever a task touches the DocuWatcher frontend (akademiasaas-boilerplate — React 18 / TypeScript / Vite monorepo, apps/web-app + packages/shared) — pages, components, hooks, Redux slices/thunks, REST data fetching, forms, routing, i18n, styling. E.g. "dodaj widok", "zaimplementuj komponent", "dodaj pole w formularzu", "napisz hooka", "dodaj slice reduxowy", "zmień layout strony", "frontend task". Prescribes clean-code best practices for NEW code: React Query for REST server state, Redux Toolkit only for Firebase/Firestore-synced global state, one shared HTTP client (a foundation task that does not exist yet — never built silently inside a feature task), CSS Modules + antd tokens for styling, small single-responsibility components, no `any`, non-negotiable accessibility, MSW for API test mocking, real bilingual i18n, and the commitlint-enforced "type(scope): desc (T-XXX)" commit format. Not for backend-only (DeadlineGuradBackend), infra/DevOps, or GitHub Project board tasks.
-version: 4.0.0
+version: 4.1.0
 ---
 
 # Rozwój frontendu DocuWatcher (Frontend Development)
@@ -21,6 +21,14 @@ Gotowy, zweryfikowany kod dla wzorców niżej: [`reference/patterns.md`](referen
 > zatrzymaj się i zapytaj użytkownika (zrobić najpierw fundament, czy świadomie
 > napisać kod po staremu i zanotować dług). Nie buduj fundamentu "przy okazji".
 Cykl zadania/git obsługuje [`github-task-delivery`](../github-task-delivery/SKILL.md).
+
+## Praca jako subagent (`frontend-dev`)
+
+Gdy ten skill działa jako preload agenta-implementera: nie masz kontaktu z
+użytkownikiem. Każde „zapytaj” w tym skillu (brakujący fundament, nowa globalna
+abstrakcja) oznacza: zatrzymaj się i zwróć orkiestratorowi blok `DECYZJA
+POTRZEBNA` (format w definicji agenta). Nie commitujesz (format commita z Zasady 10
+dotyczy komunikatu, który przygotowuje orkiestrator) i nie zmieniasz tablicy.
 
 ## Kiedy używać
 
