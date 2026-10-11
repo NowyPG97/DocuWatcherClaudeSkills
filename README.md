@@ -87,6 +87,7 @@ agenci z katalogu [`agents/`](agents/) i zwracają zwięzły raport.
 | `reviewer` | opus | high | niezależny review diffu względem kryteriów, tylko odczyt |
 | `code-researcher` | sonnet | domyślny | fakty z kodu z `plik:linia` |
 | `kzr-researcher` | sonnet | domyślny | dosłowne cytaty KZR albo „brak podstawy” |
+| `kzr-expert` | sonnet | high | specjalista KZR: odpowiedź z interpretacją, każde twierdzenie na cytacie (dok. · § · str.), poziom pewności `WPROST`/`WNIOSKOWANIE`/`BRAK PODSTAWY`; cache tekstu ze stronami w `Dokumenty KZR\.tekst\` |
 | `history-researcher` | sonnet | domyślny | tablica, archiwum analiz, (na zlecenie) arkusze klientów |
 | `test-runner` | haiku | low | pełny zestaw testów → PASS / lista failów |
 | `board-ops` | haiku | low | operacje na tablicy przy zamknięciu zadania |

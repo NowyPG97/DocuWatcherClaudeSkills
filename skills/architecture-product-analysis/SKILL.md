@@ -4,7 +4,7 @@ description: >-
   Use automatically whenever the user asks to analyze, assess, or think through an issue, idea, change request, bug report, or client feedback concerning DocuWatcher (especially the KZR mass-balance module) — e.g. "przeanalizuj", "przeanalizuj kwestię", "jaki to ma wpływ", "oceń pomysł", "czy to zgodne z KZR", "czy KZR tego wymaga", "rozważ", "co o tym myślisz", "zrób analizę", "przemyśl to", "jakie są konsekwencje", "czy to ma sens biznesowo", "zgłoszenie od klienta — co z tym zrobić". Combines two roles — software architect (technical impact on the system: data model, business rules, API, migrations, risks, options) and product owner (who needs it, why, value, scope, acceptance criteria) — and checks every conclusion against the KZR INiG context documents with exact citations. Produces an analysis and recommendation, never code. Not for implementing a board task (use github-task-delivery), not for live QA (use blackbox-verification), not for pure code review.
 model: opus
 effort: high
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Analiza architektoniczno-produktowa (Architekt + Product Owner)
@@ -80,10 +80,16 @@ Pytania formułuj precyzyjnie — ogólnik „sprawdź wszystko o X” daje ogó
 | Agent | Źródło | Co mu przekazać |
 | --- | --- | --- |
 | `code-researcher` | backend `DeadlineGuradBackend` (pakiet `com.deadlineguard.backend.massbalance`: encje, `service/`, `validation/`, Flyway; komentarze „Reguła 1–9”) + frontend `akademiasaas-boilerplate` (co widzi i może zrobić operator) | pytania o obecne zachowanie, reguły, ograniczenia schematu, UI |
-| `kzr-researcher` | `Dokumenty KZR\` | pytania o wymogi; ścieżka mapy dokumentów `${CLAUDE_SKILL_DIR}/reference/kzr-sources.md`; katalog tymczasowy = scratchpad sesji |
+| `kzr-researcher` | `Dokumenty KZR\` | proste wyszukanie: „gdzie KZR mówi o X” → same cytaty; ścieżka mapy dokumentów `${CLAUDE_SKILL_DIR}/reference/kzr-sources.md`; katalog tymczasowy = scratchpad sesji |
+| `kzr-expert` | `Dokumenty KZR\` | pytania wymagające interpretacji: „czy KZR pozwala / wymaga X dla roli Y”, łączenie definicji (/2) z wymogiem (/7) i perspektywą audytora (/10), wyjątki i przypadki szczególne; ścieżka mapy jak wyżej. Zwraca odpowiedź z poziomem pewności (`WPROST` / `WNIOSKOWANIE` / `BRAK PODSTAWY`) i cytatami |
 | `history-researcher` | tablica + `Archiwum\kzr-mass-balance-*.md` + pamięć; **arkusze klientów tylko przy klasie `PRAKTYKA OPERATORA`** (`Bilans biomasy ROZMAITEX.xlsx`, `Kopia Załącznik 7- BILANS BIOMASY HYDREW …xlsx` — wskaż, czego szukać) | czy temat ma ticket / decyzję / diagnozę; czy operator faktycznie tak pracuje; `<SCRIPTS>` = `${CLAUDE_SKILL_DIR}/../github-project-tasks/scripts` |
 
-Agenci zwracają **same fakty bez opinii** (`plik:linia`, dosłowne cytaty z
+Do jednego pytania o KZR wybierz jednego agenta KZR, nie obu. Interpretacja
+`kzr-expert` jest materiałem, nie werdyktem — werdykt i klasę wymagania ustalasz
+Ty, a jego cytaty weryfikujesz jak każde inne (krok 5).
+
+Agenci zwracają **same fakty bez opinii** (wyjątek: `kzr-expert` dołącza
+oznaczoną interpretację) (`plik:linia`, dosłowne cytaty z
 dok./§/str., Key + status, komórki arkusza). Raport niepełny albo rodzi nowe
 pytanie → wznów **tego samego** agenta (`SendMessage`) z dopytaniem zamiast
 uruchamiać nowego. Krótki fragment kodu, od którego zależy werdykt, możesz
