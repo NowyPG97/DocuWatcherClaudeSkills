@@ -70,6 +70,7 @@ DocuWatcherClaudeSkills/
 | [`github-project-tasks`](skills/github-project-tasks/SKILL.md) | Pobieranie świeżego stanu zadań i zarządzanie ich cyklem życia (status, priorytet itd.) na tablicy GitHub Projects (`NowyPG97` / projekt nr 1) |
 | [`github-task-delivery`](skills/github-task-delivery/SKILL.md) | Standardowy przebieg realizacji zadania z tablicy: ustalenie właściwego repo (pole `Codebase`) → branch → implementacja (z konwencjami `backend-development`/`frontend-development` zależnie od zadania) → testy → (opcjonalnie) black-box → commit/push → zamknięcie zadania (bez mergowania do głównego brancha `main`/`master`) |
 | [`architecture-product-analysis`](skills/architecture-product-analysis/SKILL.md) | Analiza kwestii w dwóch rolach naraz — architekt (wpływ techniczny, warianty, ryzyka) i product owner (kto, wartość, zakres, kryteria akceptacji) — z weryfikacją zgodności z dokumentami KZR INiG (cytaty ze źródła); wynik to rekomendacja, nie kod |
+| [`website-redesign`](skills/website-redesign/SKILL.md) | Strona docuwatcher.com jako osobny projekt (wyniki w `C:\DocuWatcherWorkspace\Strona\`): 1 audyt (aktualność treści względem aplikacji, prezentacja wartości modułu KZR, SEO, wygląd przez impeccable) → 2 projekt (strategia, teksty + SEO, prototyp HTML z impeccable) → 3 wdrożenie przez EMCP (szkice w Elementorze, publikacja tylko za zgodą, kontrola po publikacji) |
 
 ## Agenci i podział modeli (od 3.0.0)
 
@@ -89,6 +90,9 @@ agenci z katalogu [`agents/`](agents/) i zwracają zwięzły raport.
 | `kzr-researcher` | sonnet | domyślny | dosłowne cytaty KZR albo „brak podstawy” |
 | `kzr-expert` | sonnet | high | specjalista KZR: odpowiedź z interpretacją, każde twierdzenie na cytacie (dok. · § · str.), poziom pewności `WPROST`/`WNIOSKOWANIE`/`BRAK PODSTAWY`; cache tekstu ze stronami w `Dokumenty KZR\.tekst\` |
 | `history-researcher` | sonnet | domyślny | tablica, archiwum analiz, (na zlecenie) arkusze klientów |
+| `site-auditor` | sonnet | domyślny | inwentarz i audyt techniczny docuwatcher.com przez EMCP, tylko odczyt (treść, menu, SEO, wydajność, linki) |
+| `web-copywriter` | sonnet | domyślny | teksty i SEO podstron docuwatcher.com; każde twierdzenie o produkcie z odwołaniem do faktu `F-xx` |
+| `elementor-builder` | sonnet | domyślny | jedna podstrona jako szkic w Elementorze przez EMCP wg prototypu i tekstów; bez publikacji i ustawień witryny |
 | `test-runner` | haiku | low | pełny zestaw testów → PASS / lista failów |
 | `board-ops` | haiku | low | operacje na tablicy przy zamknięciu zadania |
 | `committer` | haiku | low | commit + push + `In review` |
