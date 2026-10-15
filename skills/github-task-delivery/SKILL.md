@@ -21,7 +21,7 @@ Wykonawstwo i mechanikę delegujesz do agentów pluginu:
 |---|---|---|
 | `code-researcher` | Sonnet | fakty z kodu (`plik:linia`) do planu |
 | `backend-dev` / `frontend-dev` | Sonnet | implementacja + testy (preload `backend-development` / `frontend-development`) |
-| `test-runner` | Haiku | pełny zestaw testów (wołany przez implementera) |
+| `test-runner` | Haiku | pełny zestaw testów (gdy potrzebujesz przebiegu niezależnie od implementera, np. po poprawkach z black-boxa) |
 | `reviewer` | Opus, high | niezależny review diffu względem kryteriów |
 | `qa` | Sonnet | black-box (preload `blackbox-verification`) |
 | `committer` | Haiku | commit + push + `In review` |
@@ -86,7 +86,8 @@ Zadanie jest gotowe do zamknięcia **tylko** gdy jednocześnie:
    frontendowe/E2E, tam gdzie dotyczy).
 3. Napisano dodatkowe testy dla przypadków brzegowych ujawnionych w trakcie.
 4. Pełny lokalny zestaw testów zielony (`./mvnw test` backend, `pnpm precommit`
-   frontend) — potwierdzony raportem `test-runner`, nie deklaracją.
+   frontend) — potwierdzony `EXIT=0` i dosłowną linią podsumowania z logu w
+   raporcie (implementera albo `test-runner`), nie samą deklaracją „PASS”.
 5. Jeśli zadanie tego wymagało (Ty decydujesz) — black-box wykonany i bez
    niewyjaśnionych rozbieżności z intencją biznesową.
 6. Stan zadania na tablicy spójny z tym, co zrobiono.
@@ -191,6 +192,15 @@ między nimi ustalasz w planie i wpisujesz do obu briefów identycznie.
 Agenci chodzą w tle — poczekaj na powiadomienie o zakończeniu, nie wymyślaj ich
 wyniku.
 
+**Wynik niepełny = agent nie skończył.** Powiadomienie o zakończeniu przychodzi
+raz, z ostatnią wiadomością agenta. Jeśli ta wiadomość nie jest raportem w
+formacie z definicji agenta ani blokiem `DECYZJA POTRZEBNA` (np. „uruchamiam
+testy, wrócę z wynikiem”, „czekam na …”), to agent zakończył turę przedwcześnie i
+dalszego ciągu nie zobaczysz. Nie czekaj i nie pytaj użytkownika — od razu wznów
+go (`SendMessage` do jego nazwy): „Twoja ostatnia wiadomość nie była raportem.
+Dokończ pracę na pierwszym planie (bez `run_in_background`) i zwróć raport
+końcowy.” Ta sama zasada dotyczy `reviewer`, `qa`, `committer`, `board-ops`.
+
 **`DECYZJA POTRZEBNA` od implementera:**
 - decyzja techniczna → rozstrzygasz sam,
 - decyzja o zakresie / priorytecie biznesowym / brakującym fundamencie → pytasz
@@ -206,7 +216,7 @@ dopisz w odpowiedzi, że takie sprawy rozstrzyga sam.
 - Każde kryterium z zadania ma odpowiednik w „Zmienione pliki” / „Testy”?
 - `git diff --stat <główny-branch>...HEAD` + `git status --short` zgadzają się z
   listą zmienionych plików (pliki spoza raportu = pytanie do implementera).
-- Pełny zestaw testów: PASS z raportu `test-runner`.
+- Pełny zestaw testów: `EXIT=0` + dosłowna linia podsumowania w raporcie.
 - „Decyzje podjęte samodzielnie” i „Odstępstwa” — każdą oceń; niezgoda → poprawka.
 - Braki → `SendMessage` do implementera, zanim pójdziesz do review.
 

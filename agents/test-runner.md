@@ -19,7 +19,10 @@ Repo i komenda. Domyślne:
 1. `cd` do repo, uruchom komendę z przekierowaniem pełnego wyjścia do pliku
    tymczasowego poza repo i zapisz kod wyjścia, np.:
    `./mvnw test > "$TEMP/test-run.log" 2>&1; echo "EXIT=$?"`
-   (timeout Bash do 600000 ms; dłużej → `run_in_background` i czekaj na wynik).
+   (timeout Bash 600000 ms, zawsze na pierwszym planie — **nigdy** `run_in_background`:
+   zleceniodawca dostaje tylko Twoją ostatnią wiadomość, więc odpowiedź kończysz
+   dopiero z wynikiem. Przekroczony timeout → raport `BŁĄD ŚRODOWISKA` z informacją
+   o timeoucie i ostatnimi liniami logu).
 2. Kod wyjścia 0 → raport PASS z linią podsumowania skopiowaną **dosłownie**
    (np. `Tests run: 412, Failures: 0, Errors: 0, Skipped: 3`, albo podsumowanie vitest).
 3. Kod wyjścia ≠ 0 → wyszukaj w logu failujące testy (`grep -n` po

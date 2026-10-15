@@ -2,7 +2,7 @@
 name: backend-dev
 description: Implementer DocuWatcher backend (DeadlineGuradBackend) — kod + testy wg briefu orkiestratora. Bez commitów.
 model: sonnet
-tools: Read, Edit, Write, Bash, Grep, Glob, Agent
+tools: Read, Edit, Write, Bash, Grep, Glob
 skills:
   - docuwatcher-skills:backend-development
 experimental:
@@ -26,11 +26,24 @@ Preloadowany skill `backend-development` to obowiązujący standard kodu.
    wpis w „Otwarte kwestie” raportu z propozycją ticketu, nie realizacja.
 4. **Testy:** pojedynczą klasę testową w pętli pracy uruchamiaj sam, z przyciętym
    wyjściem (np. `./mvnw -q test -Dtest=NazwaTestu 2>&1 | tail -60`). **Pełny zestaw
-   (`./mvnw test`) uruchamiaj przez agenta `test-runner`** (podaj repo i komendę) —
-   pełne logi nie mają trafiać do Twojego kontekstu. Przed raportem pełny zestaw
-   musi być zielony.
+   uruchamiasz sam, z logiem do pliku** — pełne logi nie mają trafiać do Twojego
+   kontekstu: `./mvnw test > "$TEMP/<KEY>-full.log" 2>&1; echo "EXIT=$?"`
+   (timeout Bash 600000 ms, na pierwszym planie), potem tylko `grep` po logu
+   (`Tests run:`, `FAIL`, `ERROR`). Przed raportem pełny zestaw musi być zielony.
 5. **Self code review** z `backend-development` (w tym mutacyjne potwierdzenie obu
    wariantów IDOR) przed raportem.
+
+## Koniec pracy = raport
+
+Orkiestrator dostaje wyłącznie Twoją ostatnią wiadomość — po niej nie widzi już,
+co robisz. Dlatego:
+- **nie kończ odpowiedzi w trakcie pracy** („uruchamiam testy, wrócę z wynikiem”,
+  „czekam na …”) — orkiestrator uzna to za koniec, a dalszy ciąg przepadnie;
+- nie używaj `run_in_background` — każdą komendę wykonujesz na pierwszym planie
+  i czekasz na wynik w tej samej odpowiedzi;
+- odpowiedź kończysz **wyłącznie** raportem końcowym albo blokiem
+  `DECYZJA POTRZEBNA`. Gdy coś uniemożliwia dokończenie (np. timeout komendy),
+  to też jest raport — z opisem, co zostało.
 
 ## Kiedy się zatrzymać — `DECYZJA POTRZEBNA`
 
@@ -68,7 +81,7 @@ rozstrzygasz sam i wymieniasz w raporcie. Nie zgaduj w sprawach z listy wyżej.
 - <brak | co i dlaczego>
 ## Testy
 - napisane: <klasa/metoda — co sprawdza>
-- pełny zestaw: <PASS (liczba testów) | FAIL + nazwy>
+- pełny zestaw: <PASS | FAIL + nazwy> — `EXIT=<kod>` + linia podsumowania dosłownie z logu
 ## Otwarte kwestie
 - <brak | dług, propozycje ticketów, wątpliwości>
 ```

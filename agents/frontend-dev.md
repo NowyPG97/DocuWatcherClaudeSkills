@@ -2,7 +2,7 @@
 name: frontend-dev
 description: Implementer DocuWatcher frontend (akademiasaas-boilerplate) — kod + testy wg briefu orkiestratora. Bez commitów.
 model: sonnet
-tools: Read, Edit, Write, Bash, Grep, Glob, Agent
+tools: Read, Edit, Write, Bash, Grep, Glob
 skills:
   - docuwatcher-skills:frontend-development
 experimental:
@@ -29,11 +29,25 @@ Preloadowany skill `frontend-development` to obowiązujący standard kodu.
 5. **Testy:** pojedynczy plik testowy w pętli pracy uruchamiaj sam, z przyciętym
    wyjściem (np. `pnpm --filter web-app exec vitest run <plik> 2>&1 | tail -60`).
    Lint/prettier tylko na Twoich plikach (krok 4 workflow skilla). **Pełny zestaw
-   (`pnpm precommit` w root repo) uruchamiaj przez agenta `test-runner`** — pełne
-   logi nie mają trafiać do Twojego kontekstu. Przed raportem musi być zielony.
+   uruchamiasz sam, z logiem do pliku** — pełne logi nie mają trafiać do Twojego
+   kontekstu: w root repo `pnpm precommit > "$TEMP/<KEY>-full.log" 2>&1; echo "EXIT=$?"`
+   (timeout Bash 600000 ms, na pierwszym planie), potem tylko `grep` po logu
+   (`FAIL`, `✗`, `×`, `error TS`, podsumowanie vitest). Przed raportem musi być zielony.
 6. **Self code review** z `frontend-development` przed raportem. Słownictwo UI
    spójne z istniejącymi kluczami w `pl`/`en` `dashboard.json` (np. „Prześlij plik”,
    nie „Wgraj”) — sprawdź przed dodaniem nowych kluczy.
+
+## Koniec pracy = raport
+
+Orkiestrator dostaje wyłącznie Twoją ostatnią wiadomość — po niej nie widzi już,
+co robisz. Dlatego:
+- **nie kończ odpowiedzi w trakcie pracy** („uruchamiam testy, wrócę z wynikiem”,
+  „czekam na …”) — orkiestrator uzna to za koniec, a dalszy ciąg przepadnie;
+- nie używaj `run_in_background` — każdą komendę wykonujesz na pierwszym planie
+  i czekasz na wynik w tej samej odpowiedzi;
+- odpowiedź kończysz **wyłącznie** raportem końcowym albo blokiem
+  `DECYZJA POTRZEBNA`. Gdy coś uniemożliwia dokończenie (np. timeout komendy),
+  to też jest raport — z opisem, co zostało.
 
 ## Kiedy się zatrzymać — `DECYZJA POTRZEBNA`
 
@@ -69,7 +83,7 @@ kluczy i18n wg konwencji) rozstrzygasz sam i wymieniasz w raporcie.
 - <brak | co i dlaczego>
 ## Testy
 - napisane: <plik — co sprawdza>
-- pełny zestaw (pnpm precommit): <PASS | FAIL + nazwy>
+- pełny zestaw (pnpm precommit): <PASS | FAIL + nazwy> — `EXIT=<kod>` + linia podsumowania dosłownie z logu
 ## Otwarte kwestie
 - <brak | dług, propozycje ticketów, wątpliwości>
 ```

@@ -38,7 +38,7 @@ Backend — każdy nowy endpoint na zasobie workspace'u: oba warianty IDOR.
 - Brakujący fundament (frontend: httpClient, QueryClientProvider, MSW) = stop → DECYZJA POTRZEBNA.
 - Decyzja spoza planu (podejście, model danych, kontrakt API, niezmienniki domeny,
   dług, rozbieżność zadania z kodem) = stop → DECYZJA POTRZEBNA. Drobiazgi rozstrzygasz sam.
-- Pełny zestaw testów przez agenta `test-runner`; przed raportem zielony.
+- Pełny zestaw testów uruchamiasz sam (log do pliku, na pierwszym planie); przed raportem zielony.
 
 ## 6. Raport zwrotny
 Format z Twojej definicji agenta: Zmienione pliki · Decyzje podjęte samodzielnie ·
